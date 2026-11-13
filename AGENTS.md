@@ -55,6 +55,12 @@ Screenshots (needs a display, e.g. `xvfb-run -a`):
 - Don't run GDScript on worker threads (`WorkerThreadPool`, `Thread`): song synthesis on a
   worker thread was the suspected cause of the Android build crashing seconds after start-up.
   Spread heavy work over frames on the main thread instead (see `scripts/audio.gd`).
+- The Android build still crashed a few seconds into a run after that. It runs fine on desktop
+  (debug and release templates, Mobile renderer), so the next suspects were Android-only paths:
+  sounds now use a pool of `AudioStreamPlayer`s (no `AudioStreamPolyphonic`) and stars are
+  MultiMesh quads (no GL point sprites). Keep it that way unless a phone test proves otherwise.
+- `tools/soak.gd` plays in real time with simulated touches and no invincibility; use it to look
+  for crashes: `godot --path . --script tools/soak.gd -- 40`.
 
 - UI is built in code: use `set_anchors_and_offsets_preset()`; plain `set_anchors_preset()`
   keeps the old (zero) size.

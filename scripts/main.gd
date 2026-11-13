@@ -251,27 +251,27 @@ func _setup_world() -> void:
 
 
 func _star_layer(n: int, z0: float, z1: float, size: float, color: Color) -> Node3D:
-	var pos := PackedVector3Array()
-	for i in n:
-		pos.append(Vector3(randf_range(0, 900), randf_range(-180, 180), randf_range(z0, z1)))
-	var arrays := []
-	arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX] = pos
-	var m := ArrayMesh.new()
-	m.add_surface_from_arrays(Mesh.PRIMITIVE_POINTS, arrays)
+	# Stars are tiny quads in a MultiMesh, not GL points: point sprites are the least portable
+	# primitive on Android GPUs.
+	var q := QuadMesh.new()
+	q.size = Vector2.ONE * size * 0.55
 	var mat := StandardMaterial3D.new()
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.use_point_size = true
-	mat.point_size = size
 	mat.albedo_color = color
 	mat.disable_fog = true
+	q.material = mat
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = q
+	mm.instance_count = n
+	for i in n:
+		mm.set_instance_transform(i, Transform3D(Basis(), Vector3(randf_range(0, 900), randf_range(-180, 180), randf_range(z0, z1))))
 	var grp := Node3D.new()
 	for k in 2:
-		var mi := MeshInstance3D.new()
-		mi.mesh = m
-		mi.material_override = mat
+		var mi := MultiMeshInstance3D.new()
+		mi.multimesh = mm
 		mi.position.x = 900.0 * k
-		mi.extra_cull_margin = 1000.0
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		grp.add_child(mi)
 	add_child(grp)
 	return grp
