@@ -54,6 +54,7 @@ There are no visible touch buttons: a faint map of the zones shows for the first
 | `scripts/audio.gd` | Chiptune synth: sound effects and songs rendered at start-up |
 | `shaders/` | Sky gradient, gradient text, rounded progress bars |
 | `tests/` | Headless tests run in CI |
+| `AGENTS.md` | Notes and rules for coding agents |
 | `tools/` | Icon generator, screenshot script |
 
 ## Tests
