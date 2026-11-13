@@ -1,0 +1,11 @@
+Star Breaker
+Copyright (c) 2026 Guillaume Font. All rights reserved.
+
+This software, including its source code, game design, levels, artwork and other
+assets, is proprietary and confidential. No part of it may be copied, modified,
+distributed, published, sublicensed or sold, in source or binary form, without
+the prior written permission of the copyright holder.
+
+Third-party components keep their own licenses:
+- Godot Engine: MIT license, (c) the Godot Engine contributors (https://godotengine.org/license).
+- Font Rubik: SIL Open Font License 1.1, see assets/fonts/OFL.txt.

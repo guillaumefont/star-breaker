@@ -1,0 +1,196 @@
+class_name Sfx
+extends Node
+## Procedural chiptune audio: every sound effect and both songs are synthesised at
+## start-up into AudioStreamWAV buffers, so the project ships with no audio files.
+
+const RATE := 22050
+const MASTER := 0.8
+
+var _poly: AudioStreamPlayer
+var _music: AudioStreamPlayer
+var _fx: Dictionary = {}
+var _songs: Dictionary = {}
+var _want_song := ""
+var _mutex := Mutex.new()
+var _task := -1
+
+const SONGS := {
+	stage = {step = 0.14, bass = [45, 0, 45, 57, 45, 0, 45, 55, 41, 0, 41, 53, 43, 0, 43, 55],
+		lead = [69, 0, 72, 74, 76, 0, 74, 72, 74, 0, 71, 0, 67, 69, 71, 0, 72, 0, 76, 79, 81, 0, 79, 76, 77, 0, 76, 74, 76, 0, 0, 0]},
+	boss = {step = 0.11, bass = [45, 45, 46, 45, 45, 45, 48, 46, 45, 45, 46, 45, 52, 51, 50, 48],
+		lead = [69, 70, 69, 0, 72, 0, 69, 0, 75, 74, 72, 0, 70, 0, 69, 0]},
+}
+
+
+func _ready() -> void:
+	_poly = AudioStreamPlayer.new()
+	var ps := AudioStreamPolyphonic.new()
+	ps.polyphony = 24
+	_poly.stream = ps
+	add_child(_poly)
+	_poly.play()
+	_music = AudioStreamPlayer.new()
+	_music.volume_db = -3.0
+	add_child(_music)
+	_build_fx()
+	_task = WorkerThreadPool.add_task(_build_songs)
+
+
+func _exit_tree() -> void:
+	if _task != -1:
+		WorkerThreadPool.wait_for_task_completion(_task)
+		_task = -1
+
+
+func play(name: String, arg := 0) -> void:
+	var key := name + (str(arg) if name == "beam" else "")
+	if not _fx.has(key) or not _poly.playing:
+		return
+	var pb := _poly.get_stream_playback() as AudioStreamPlaybackPolyphonic
+	if pb:
+		pb.play_stream(_fx[key])
+
+
+func music(name: String) -> void:
+	_want_song = name
+	_mutex.lock()
+	var s: AudioStream = _songs.get(name)
+	_mutex.unlock()
+	if name == "" or s == null:
+		_music.stop()
+		return
+	_music.stream = s
+	_music.play()
+
+
+func set_muted(m: bool) -> void:
+	AudioServer.set_bus_mute(0, m)
+
+
+func set_paused(p: bool) -> void:
+	_music.stream_paused = p
+
+
+# ---------- synthesis ----------
+
+static func _osc(type: String, ph: float) -> float:
+	var f := ph - floorf(ph)
+	match type:
+		"square":
+			return 1.0 if f < 0.5 else -1.0
+		"triangle":
+			return 4.0 * absf(f - 0.5) - 1.0
+		"sawtooth":
+			return 2.0 * f - 1.0
+	return sin(f * TAU)
+
+
+## Adds an oscillator with an exponential pitch sweep and decay into `buf`.
+static func _tone(buf: PackedFloat32Array, type: String, f0: float, f1: float, dur: float, vol: float, when := 0.0, wrap := false) -> void:
+	var start := int(when * RATE)
+	var n := int(dur * RATE)
+	var ph := 0.0
+	var size := buf.size()
+	for i in n:
+		var t := float(i) / n
+		var f := f0 * pow(f1 / f0, t) if f1 > 0.0 else f0
+		ph += f / RATE
+		var idx := start + i
+		if wrap:
+			idx %= size
+		elif idx >= size:
+			break
+		buf[idx] += _osc(type, ph) * vol * pow(0.0001 / vol, t)
+
+
+static func _noise(buf: PackedFloat32Array, dur: float, vol: float, freq: float) -> void:
+	var n := mini(int(dur * RATE), buf.size())
+	var y := 0.0
+	for i in n:
+		var t := float(i) / n
+		var cut := freq * pow(80.0 / freq, t)
+		var a := 1.0 - exp(-TAU * cut / RATE)
+		y += (randf() * 2.0 - 1.0 - y) * a
+		buf[i] += y * vol * 1.6 * pow(0.0001 / vol, t)
+
+
+static func _wav(buf: PackedFloat32Array, loop := false) -> AudioStreamWAV:
+	var data := PackedByteArray()
+	data.resize(buf.size() * 2)
+	for i in buf.size():
+		data.encode_s16(i * 2, int(clampf(buf[i] * MASTER, -1.0, 1.0) * 32767.0))
+	var w := AudioStreamWAV.new()
+	w.format = AudioStreamWAV.FORMAT_16_BITS
+	w.mix_rate = RATE
+	w.stereo = false
+	w.data = data
+	if loop:
+		w.loop_mode = AudioStreamWAV.LOOP_FORWARD
+		w.loop_begin = 0
+		w.loop_end = buf.size()
+	return w
+
+
+static func _buf(dur: float) -> PackedFloat32Array:
+	var b := PackedFloat32Array()
+	b.resize(int(dur * RATE) + 64)
+	return b
+
+
+func _build_fx() -> void:
+	var b: PackedFloat32Array
+	b = _buf(0.08); _tone(b, "square", 1300, 380, 0.07, 0.04); _fx.shot = _wav(b)
+	b = _buf(0.04); _tone(b, "square", 1800, 900, 0.035, 0.018); _fx.rapid = _wav(b)
+	for l in [1, 2, 3]:
+		b = _buf(0.6); _tone(b, "sawtooth", 1000, 80, 0.25 + 0.1 * l, 0.07); _noise(b, 0.2, 0.06, 4000); _fx["beam" + str(l)] = _wav(b)
+	b = _buf(0.5); _noise(b, 0.5, 0.22, 900); _fx.boom = _wav(b)
+	b = _buf(0.18); _noise(b, 0.18, 0.12, 2000); _fx.small = _wav(b)
+	b = _buf(0.04); _tone(b, "square", 320, 160, 0.03, 0.025); _fx.hit = _wav(b)
+	b = _buf(0.05); _tone(b, "triangle", 2600, 1900, 0.04, 0.03); _fx.tink = _wav(b)
+	b = _buf(0.2)
+	for i in 3:
+		_tone(b, "square", [660, 880, 1320][i], 0, 0.07, 0.045, i * 0.06)
+	_fx.pick = _wav(b)
+	b = _buf(0.9); _noise(b, 0.9, 0.28, 700); _tone(b, "square", 600, 50, 0.8, 0.06); _fx.die = _wav(b)
+	b = _buf(0.06); _tone(b, "square", 1760, 0, 0.05, 0.03); _fx.ready = _wav(b)
+	b = _buf(1.15)
+	for i in 4:
+		_tone(b, "square", 880, 440, 0.2, 0.045, i * 0.3)
+	_fx.alarm = _wav(b)
+	b = _buf(0.1); _tone(b, "triangle", 500, 1100, 0.09, 0.05); _fx.pod = _wav(b)
+	b = _buf(0.08); _tone(b, "triangle", 1100, 700, 0.07, 0.05); _fx.dock = _wav(b)
+	b = _buf(0.36)
+	for i in 4:
+		_tone(b, "square", [523, 659, 784, 1047][i], 0, 0.09, 0.045, i * 0.08)
+	_fx.oneup = _wav(b)
+
+
+func _build_songs() -> void:
+	for name in SONGS:
+		var s: Dictionary = SONGS[name]
+		var bass: Array = s.bass
+		var lead: Array = s.lead
+		var steps: int = maxi(bass.size(), lead.size())
+		var step: float = s.step
+		var b := PackedFloat32Array()
+		b.resize(int(steps * step * RATE))
+		for i in steps:
+			var t := i * step
+			if bass[i % bass.size()]:
+				_tone(b, "square", _midi(bass[i % bass.size()]), 0, step * 0.85, 0.03, t, true)
+			if lead[i % lead.size()]:
+				_tone(b, "triangle", _midi(lead[i % lead.size()]), 0, step * 1.7, 0.05, t, true)
+		var w := _wav(b, true)
+		_mutex.lock()
+		_songs[name] = w
+		_mutex.unlock()
+	call_deferred("_songs_ready")
+
+
+func _songs_ready() -> void:
+	if _want_song != "" and not _music.playing:
+		music(_want_song)
+
+
+static func _midi(m: int) -> float:
+	return 440.0 * pow(2.0, (m - 69) / 12.0)
