@@ -1,5 +1,9 @@
 # Star Breaker
 
+**[▶ Play in the browser](https://guillaumefont.github.io/star-breaker/)** · **[⬇ Download the Android APK](https://guillaumefont.github.io/star-breaker/star-breaker.apk)**
+
+<sub>Latest build of `main`, updated on every merge.</sub>
+
 An original low poly 3D horizontal side-scrolling shooter, built with **Godot 4.7**.
 The moon is blooming: fly into the crystal cavern of *The Hollow Moon* and cut the Bloom Mother back.
 
