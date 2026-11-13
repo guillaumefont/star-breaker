@@ -20,5 +20,7 @@ jobs:
         run: ./godot --headless --path . --import
       - name: Full run (stage, pod, charge beam, Bloom Mother, loop, game over)
         run: ./godot --headless --path . --script tests/play_test.gd
+      - name: Songs build on the main thread (Android start-up crash)
+        run: ./godot --headless --path . --script tests/audio_test.gd
       - name: Touch zones and floating stick
         run: ./godot --headless --path . --script tests/touch_test.gd

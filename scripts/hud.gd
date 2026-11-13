@@ -443,7 +443,7 @@ func _build_hud() -> void:
 	_charge_fill = cb[1]
 
 	# keyboard hints
-	_hints = _keys([["WASD", "Move"], ["Z", "Fire"], ["X", "Rapid fire (hold)"], ["C", "Charge (hold, release)"], ["Space", "Pod"]])
+	_hints = _keys([["WASD", "Move"], ["Z", "Fire (hold for rapid)"], ["X", "Charge (hold, release)"], ["Space", "Pod"]])
 	_hints.anchor_left = 0.5
 	_hints.anchor_right = 0.5
 	_hints.anchor_top = 0.87
@@ -532,11 +532,11 @@ func _build_title() -> Control:
 	s[0].size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(s[0])
 	_title_hi = s[1]
-	var kr := _keys([["WASD", "Move"], ["Z", "Fire"], ["X", "Rapid fire"], ["C", "Charge"], ["Space", "Pod"], ["Esc", "Pause"]], 900)
+	var kr := _keys([["WASD", "Move"], ["Z", "Fire"], ["X", "Charge"], ["Space", "Pod"], ["Esc", "Pause"]], 900)
 	kr.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(kr)
 	_key_rows.append(kr)
-	var tr := _keys([["Left", "Move"], ["Right", "Fire · Rapid · Charge"], ["Top right", "Pod"]], 900)
+	var tr := _keys([["Left", "Move"], ["Right", "Charge · Fire"], ["Top right", "Pod"]], 900)
 	tr.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(tr)
 	_touch_rows.append(tr)
@@ -568,7 +568,7 @@ func _build_pause() -> Control:
 	h.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(h)
 	v.add_child(_cta("Resume"))
-	var kr := _keys([["Z", "Fire"], ["X", "Rapid fire"], ["C", "Charge"], ["Space", "Pod"], ["M", "Mute"]], 900)
+	var kr := _keys([["Z", "Fire (hold for rapid)"], ["X", "Charge"], ["Space", "Pod"], ["M", "Mute"]], 900)
 	kr.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(kr)
 	_key_rows.append(kr)

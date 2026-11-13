@@ -10,11 +10,14 @@ const SAVE_PATH := "user://save.cfg"
 const DEF := {drifter = [3, 3, 1, 100], turret = [4, 3.5, 3, 300], hopper = [5, 3, 2, 200], carrier = [5, 4, 5, 500], shell = [10, 7, 26, 1500]}
 const ACTIONS := {
 	left = [KEY_LEFT, KEY_A], right = [KEY_RIGHT, KEY_D], up = [KEY_UP, KEY_W], down = [KEY_DOWN, KEY_S],
-	fire = [KEY_Z, KEY_J], rapid = [KEY_X, KEY_K], charge = [KEY_C, KEY_L], pod = [KEY_SPACE, KEY_V, KEY_SHIFT],
+	fire = [KEY_Z, KEY_J], charge = [KEY_X, KEY_C, KEY_K, KEY_L], pod = [KEY_SPACE, KEY_V, KEY_SHIFT],
 	start = [KEY_ENTER, KEY_P, KEY_ESCAPE], mute = [KEY_M],
 }
-const PADS := {fire = [JOY_BUTTON_A], rapid = [JOY_BUTTON_X], charge = [JOY_BUTTON_B], pod = [JOY_BUTTON_Y, JOY_BUTTON_RIGHT_SHOULDER], start = [JOY_BUTTON_START]}
+const PADS := {fire = [JOY_BUTTON_A], charge = [JOY_BUTTON_B, JOY_BUTTON_X], pod = [JOY_BUTTON_Y, JOY_BUTTON_RIGHT_SHOULDER], start = [JOY_BUTTON_START]}
 const CAM := Vector3(0, -9, 152)
+## Fire: a tap shoots one heavy shot; holding it longer than this many ticks streams rapid fire.
+const RAPID_AFTER := 12
+const RAPID_EVERY := 6
 
 var mode := "title"
 var paused := false
@@ -439,7 +442,7 @@ func build_script() -> Array:
 func new_game() -> void:
 	G = {score = 0, lives = 2, loop = 1, next_extend = 20000}
 	P = {x = -10.0, y = 63.0, hw = 2.5, hh = 1.5, alive = true, inv = 0, entering = true, charge = 0, charge_held = false,
-		rapid_cd = 0, laser = 0, speed = 0, respawn = 0, vy = 0.0, ready_lv = 0}
+		rapid_cd = 0, fire_hold = 0, laser = 0, speed = 0, respawn = 0, vy = 0.0, ready_lv = 0}
 	pod = {state = "none", x = 0.0, y = 0.0, hw = 3.6, hh = 3.6, tx = 0.0, grab_cd = 0, hit_cd = 0}
 	mode = "play"
 	paused = false
@@ -1090,13 +1093,18 @@ func step() -> void:
 			P.x = clampf(P.x + dx * sp, 8, W - 10)
 			P.y = clampf(P.y + dy * sp, 4, PH - 4)
 		P.vy += (dy - P.vy) * 0.2
-		if hit("fire"):
-			fire_shot(false)
 		if P.rapid_cd > 0:
 			P.rapid_cd -= 1
-		if held("rapid") and P.rapid_cd <= 0 and not P.entering:
-			fire_shot(true)
-			P.rapid_cd = 6
+		if hit("fire"):
+			fire_shot(false)
+			P.fire_hold = 0
+		elif held("fire"):
+			P.fire_hold += 1
+			if P.fire_hold > RAPID_AFTER and P.rapid_cd <= 0 and not P.entering:
+				fire_shot(true)
+				P.rapid_cd = RAPID_EVERY
+		else:
+			P.fire_hold = 0
 		var ch := held("charge")
 		if ch:
 			P.charge = mini(100, P.charge + 1)

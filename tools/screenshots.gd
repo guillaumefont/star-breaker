@@ -36,11 +36,11 @@ func _initialize() -> void:
 	main.warp(1500)
 	main.drop_item(main.P.x + 2, main.P.y, "P")
 	main.drop_item(main.P.x + 2, main.P.y, "L")
-	Input.action_press("rapid")
+	Input.action_press("fire")
 	for i in 260:
 		main.P.inv = 2
 		if i == 150:
-			Input.action_release("rapid")
+			Input.action_release("fire")
 			Input.action_press("charge")
 		await physics_frame
 	await snap("stage")

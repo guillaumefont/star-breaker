@@ -42,13 +42,17 @@ func _initialize() -> void:
 
 	# weapons
 	var before: int = main.G.pb.size()
-	press("fire")
+	Input.action_press("fire")
 	tick()
-	check(main.G.pb.size() > before, "single fire shoots a heavy shot")
-	Input.action_press("rapid")
-	tick(30)
-	Input.action_release("rapid")
-	check(main.G.pb.size() >= 4, "rapid fire keeps shooting while held")
+	Input.action_release("fire")
+	var after_tap: int = main.G.pb.size()
+	check(after_tap == before + 1 and main.G.pb[-1].dmg == 2, "tapping Fire shoots one heavy shot")
+	tick(20)
+	check(main.G.pb.size() == after_tap, "a tap never turns into rapid fire")
+	Input.action_press("fire")
+	tick(40)
+	Input.action_release("fire")
+	check(main.G.pb.size() >= after_tap + 4 and main.G.pb[-1].dmg == 1, "holding Fire streams rapid shots")
 	Input.action_press("charge")
 	tick(105)
 	check(main.charge_lv(main.P.charge) == 3, "charge reaches level 3")
@@ -78,7 +82,7 @@ func _initialize() -> void:
 	# fly the whole stage with rapid fire and a weaving ship
 	var seen := {}
 	var killed_score: int = main.G.score
-	Input.action_press("rapid")
+	Input.action_press("fire")
 	for i in 7600:
 		var up := (i / 90) % 2 == 0
 		if up:
@@ -135,7 +139,7 @@ func _initialize() -> void:
 	check(main.G.boss == null and main.G.clear_t > 0, "Stage Clear")
 	tick(340)
 	check(main.G.loop == loop_before + 1 and main.G.scroll < 40, "stage loops harder (loop %d)" % main.G.loop)
-	Input.action_release("rapid")
+	Input.action_release("fire")
 
 	# game over
 	main.G.lives = 0

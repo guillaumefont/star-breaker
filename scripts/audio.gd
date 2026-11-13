@@ -11,8 +11,8 @@ var _music: AudioStreamPlayer
 var _fx: Dictionary = {}
 var _songs: Dictionary = {}
 var _want_song := ""
-var _mutex := Mutex.new()
-var _task := -1
+var _jobs: Array = []
+const BUDGET_USEC := 3000
 
 const SONGS := {
 	stage = {step = 0.14, bass = [45, 0, 45, 57, 45, 0, 45, 55, 41, 0, 41, 53, 43, 0, 43, 55],
@@ -33,13 +33,43 @@ func _ready() -> void:
 	_music.volume_db = -3.0
 	add_child(_music)
 	_build_fx()
-	_task = WorkerThreadPool.add_task(_build_songs)
+	for name in SONGS:
+		var s: Dictionary = SONGS[name]
+		var steps: int = maxi(s.bass.size(), s.lead.size())
+		var b := PackedFloat32Array()
+		b.resize(int(steps * float(s.step) * RATE))
+		_jobs.append({name = name, i = 0, steps = steps, buf = b})
 
 
-func _exit_tree() -> void:
-	if _task != -1:
-		WorkerThreadPool.wait_for_task_completion(_task)
-		_task = -1
+## Songs are synthesised a few notes per frame on the main thread (no worker threads:
+## they crashed the Android build a few seconds after start-up).
+func _process(_delta: float) -> void:
+	if _jobs.is_empty():
+		set_process(false)
+		return
+	var t0 := Time.get_ticks_usec()
+	while not _jobs.is_empty() and Time.get_ticks_usec() - t0 < BUDGET_USEC:
+		var j: Dictionary = _jobs[0]
+		var s: Dictionary = SONGS[j.name]
+		var bass: Array = s.bass
+		var lead: Array = s.lead
+		var step: float = s.step
+		var i: int = j.i
+		var t := i * step
+		if bass[i % bass.size()]:
+			_tone(j.buf, "square", _midi(bass[i % bass.size()]), 0, step * 0.85, 0.03, t, true)
+		if lead[i % lead.size()]:
+			_tone(j.buf, "triangle", _midi(lead[i % lead.size()]), 0, step * 1.7, 0.05, t, true)
+		j.i = i + 1
+		if j.i >= j.steps:
+			_songs[j.name] = _wav(j.buf, true)
+			_jobs.pop_front()
+			if _want_song == j.name and not _music.playing:
+				music(_want_song)
+
+
+func songs_ready() -> bool:
+	return _jobs.is_empty()
 
 
 func play(name: String, arg := 0) -> void:
@@ -53,9 +83,7 @@ func play(name: String, arg := 0) -> void:
 
 func music(name: String) -> void:
 	_want_song = name
-	_mutex.lock()
 	var s: AudioStream = _songs.get(name)
-	_mutex.unlock()
 	if name == "" or s == null:
 		_music.stop()
 		return
@@ -163,33 +191,6 @@ func _build_fx() -> void:
 	for i in 4:
 		_tone(b, "square", [523, 659, 784, 1047][i], 0, 0.09, 0.045, i * 0.08)
 	_fx.oneup = _wav(b)
-
-
-func _build_songs() -> void:
-	for name in SONGS:
-		var s: Dictionary = SONGS[name]
-		var bass: Array = s.bass
-		var lead: Array = s.lead
-		var steps: int = maxi(bass.size(), lead.size())
-		var step: float = s.step
-		var b := PackedFloat32Array()
-		b.resize(int(steps * step * RATE))
-		for i in steps:
-			var t := i * step
-			if bass[i % bass.size()]:
-				_tone(b, "square", _midi(bass[i % bass.size()]), 0, step * 0.85, 0.03, t, true)
-			if lead[i % lead.size()]:
-				_tone(b, "triangle", _midi(lead[i % lead.size()]), 0, step * 1.7, 0.05, t, true)
-		var w := _wav(b, true)
-		_mutex.lock()
-		_songs[name] = w
-		_mutex.unlock()
-	call_deferred("_songs_ready")
-
-
-func _songs_ready() -> void:
-	if _want_song != "" and not _music.playing:
-		music(_want_song)
 
 
 static func _midi(m: int) -> float:

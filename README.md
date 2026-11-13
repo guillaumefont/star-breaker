@@ -23,9 +23,8 @@ names, art and levels are original.
 | Action | Keyboard | Gamepad | Touch |
 | --- | --- | --- | --- |
 | Move | Arrows / WASD | Left stick, D-pad | Left half: floating stick that appears under your thumb and follows it |
-| Fire (heavy shot) | Z | A | Tap the **Fire** zone (bottom right, left column) |
-| Rapid fire | X (hold) | X | Hold the **Rapid** zone (middle column) |
-| Charge beam | C (hold, release) | B | Hold the **Charge** zone (right column), release to fire |
+| Fire (tap: heavy shot, hold: rapid fire) | Z | A | **Fire** zone (bottom right, right column): tap, or hold for rapid fire |
+| Charge beam | X or C (hold, release) | B, X | Hold the **Charge** zone (bottom right, left column), release to fire |
 | Pod launch / recall | Space | Y, RB | Tap the **Pod** strip (top right) |
 | Pause | Esc / Enter | Start | Pause button, Android back |
 | Mute | M | | Speaker button |
@@ -34,7 +33,7 @@ There are no visible touch buttons: a faint map of the zones shows for the first
 
 ## Game
 
-- **Weapons:** heavy single shot, rapid fire, and a charge beam with three levels that pierces
+- **Weapons:** one Fire button (a tap shoots a heavy shot, holding it streams rapid fire) and a charge beam with three levels that pierces
   everything in its path.
 - **Pod:** collect a **P** carrier drop to get the pod. It docks to the front or back of the
   ship (whichever side it touches), blocks bullets, rams enemies, and fires with you. Launch it
@@ -67,6 +66,7 @@ There are no visible touch buttons: a faint map of the zones shows for the first
 godot --headless --path . --import
 godot --headless --path . --script tests/play_test.gd    # full run: stage, pod, beam, boss, loop, game over
 godot --headless --path . --script tests/touch_test.gd   # floating stick and touch zones
+godot --headless --path . --script tests/audio_test.gd   # songs build on the main thread, all sound effects exist
 ```
 
 Screenshots (needs a display, e.g. `xvfb-run`):
