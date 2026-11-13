@@ -32,5 +32,12 @@ func _initialize() -> void:
 	check(sfx._music.stream == sfx._songs.get("stage"), "music asked for early starts once it is ready")
 	for k in ["shot", "rapid", "beam1", "beam3", "boom", "pod", "dock", "alarm", "oneup"]:
 		check(sfx._fx.has(k), "sound effect %s" % k)
+	# a burst far larger than the pool (rapid fire + hits + explosions) must just recycle players
+	for i in 200:
+		sfx.play(["shot", "rapid", "hit", "small", "boom", "beam"][i % 6], 1 + i % 3)
+		if i % 10 == 0:
+			await process_frame
+	check(sfx._pool.size() == Sfx.POOL and sfx.get_child_count() == Sfx.POOL + 1, "a burst of 200 sounds reuses the fixed player pool")
+	check(not ClassDB.class_exists("AudioStreamPolyphonic") or sfx.find_children("*", "AudioStreamPlayer", false).all(func(p): return not (p.stream is AudioStreamPolyphonic)), "no AudioStreamPolyphonic player (Android crash suspect)")
 	print("%d failure(s)" % fails)
 	quit(1 if fails else 0)

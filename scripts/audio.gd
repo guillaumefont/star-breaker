@@ -6,7 +6,9 @@ extends Node
 const RATE := 22050
 const MASTER := 0.8
 
-var _poly: AudioStreamPlayer
+const POOL := 12
+var _pool: Array[AudioStreamPlayer] = []
+var _next := 0
 var _music: AudioStreamPlayer
 var _fx: Dictionary = {}
 var _songs: Dictionary = {}
@@ -23,12 +25,12 @@ const SONGS := {
 
 
 func _ready() -> void:
-	_poly = AudioStreamPlayer.new()
-	var ps := AudioStreamPolyphonic.new()
-	ps.polyphony = 24
-	_poly.stream = ps
-	add_child(_poly)
-	_poly.play()
+	# A pool of plain players (as in tether-rally) rather than one AudioStreamPolyphonic:
+	# the polyphonic player was the main suspect for the Android crash a few seconds into a run.
+	for i in POOL:
+		var p := AudioStreamPlayer.new()
+		add_child(p)
+		_pool.append(p)
 	_music = AudioStreamPlayer.new()
 	_music.volume_db = -3.0
 	add_child(_music)
@@ -74,11 +76,19 @@ func songs_ready() -> bool:
 
 func play(name: String, arg := 0) -> void:
 	var key := name + (str(arg) if name == "beam" else "")
-	if not _fx.has(key) or not _poly.playing:
+	if not _fx.has(key):
 		return
-	var pb := _poly.get_stream_playback() as AudioStreamPlaybackPolyphonic
-	if pb:
-		pb.play_stream(_fx[key])
+	# take a free player, else the one that started longest ago
+	var p: AudioStreamPlayer = _pool[_next]
+	for i in POOL:
+		var q: AudioStreamPlayer = _pool[(_next + i) % POOL]
+		if not q.playing:
+			p = q
+			_next = (_next + i) % POOL
+			break
+	_next = (_next + 1) % POOL
+	p.stream = _fx[key]
+	p.play()
 
 
 func music(name: String) -> void:
