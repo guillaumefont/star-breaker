@@ -2,10 +2,10 @@ class_name TouchPad
 extends Control
 ## Touch controls with no visible buttons: the left half is a floating analog stick that
 ## appears where the thumb lands and follows it; the right half is split into invisible
-## zones (Pod strip on top, then Fire | Rapid | Charge). A faint map of the zones shows
+## zones (Pod strip on top, then Charge | Fire). A faint map of the zones shows
 ## for the first seconds of a run.
 
-const ZC := {fire = Color("3ff0e0"), rapid = Color("ffb547"), charge = Color("8c7bff"), pod = Color("ff4fa3")}
+const ZC := {fire = Color("3ff0e0"), charge = Color("8c7bff"), pod = Color("ff4fa3")}
 const RADIUS := 65.0
 
 var hud: Hud
@@ -33,9 +33,8 @@ func _ready() -> void:
 	add_child(_zones)
 	_zone(Rect2(0.02, 0.20, 0.44, 0.76), "MOVE", "Touch anywhere here")
 	_zone(Rect2(0.50, 0.20, 0.48, 0.22), "POD", "Tap to launch or recall")
-	_zone(Rect2(0.50, 0.45, 0.15, 0.51), "FIRE", "Tap")
-	_zone(Rect2(0.665, 0.45, 0.15, 0.51), "RAPID", "Hold")
-	_zone(Rect2(0.83, 0.45, 0.15, 0.51), "CHARGE", "Hold, release")
+	_zone(Rect2(0.50, 0.45, 0.23, 0.51), "CHARGE", "Hold, release")
+	_zone(Rect2(0.75, 0.45, 0.23, 0.51), "FIRE", "Tap, or hold for rapid")
 
 
 func _zone(r: Rect2, title: String, sub: String) -> void:
@@ -82,11 +81,9 @@ static func zone_at(fx: float, fy: float) -> String:
 		return "move"
 	if fy < 0.43:
 		return "pod"
-	if fx < 0.66:
-		return "fire"
-	if fx < 0.825:
-		return "rapid"
-	return "charge"
+	if fx < 0.74:
+		return "charge"
+	return "fire"
 
 
 func _input(event: InputEvent) -> void:

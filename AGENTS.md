@@ -3,6 +3,8 @@
 Star Breaker is an original low poly 3D side-scrolling shooter in Godot 4.7, in the genre of
 R-Type II but with all-original content: never use R-Type names, art, enemies or levels.
 Guillaume wants a modern mobile-game look (glass HUD, bloom, Rubik font), not retro.
+Controls (2026-11-13): one Fire action (tap = heavy shot, hold = rapid fire) and Charge; on touch
+the right side is a Pod strip on top, then Charge | Fire below.
 
 ## Pull requests
 
@@ -42,12 +44,17 @@ Guillaume wants a modern mobile-game look (glass HUD, bloom, Rubik font), not re
 godot --headless --path . --import
 godot --headless --path . --script tests/play_test.gd    # full run: weapons, pod, enemies, boss, loop, game over
 godot --headless --path . --script tests/touch_test.gd   # floating stick and invisible touch zones
+godot --headless --path . --script tests/audio_test.gd   # songs build on the main thread, sound effects exist
 ```
 
 Screenshots (needs a display, e.g. `xvfb-run -a`):
 `godot --path . --rendering-method gl_compatibility --script tools/screenshots.gd -- /tmp/shots`
 
 ## Gotchas
+
+- Don't run GDScript on worker threads (`WorkerThreadPool`, `Thread`): song synthesis on a
+  worker thread was the suspected cause of the Android build crashing seconds after start-up.
+  Spread heavy work over frames on the main thread instead (see `scripts/audio.gd`).
 
 - UI is built in code: use `set_anchors_and_offsets_preset()`; plain `set_anchors_preset()`
   keeps the old (zero) size.
