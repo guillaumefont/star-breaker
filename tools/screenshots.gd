@@ -53,7 +53,7 @@ func _initialize() -> void:
 		main.P.inv = 2
 		await physics_frame
 	await snap("boss")
-	for wi in [1, 2, 3]:
+	for wi in range(1, Worlds.LIST.size()):
 		main.teardown()
 		main.new_game(wi)
 		main.P.laser = 2
@@ -72,6 +72,16 @@ func _initialize() -> void:
 			await physics_frame
 		Input.action_release("fire")
 		await snap("w%d_tunnel" % (wi + 1))
+		# a fortress room: towers, a locked gate or a gun line
+		var fo: Dictionary = main.wdef.terrain.forts[0]
+		main.warp(fo.a + 260.0)
+		Input.action_press("fire")
+		for i in 240:
+			main.P.inv = 2
+			main.P.y = main.mid_y(main.G.scroll + main.P.x)
+			await physics_frame
+		Input.action_release("fire")
+		await snap("w%d_fort" % (wi + 1))
 		main.warp(main.wdef.boss_at - 110.0)
 		for i in 700:
 			main.P.inv = 2

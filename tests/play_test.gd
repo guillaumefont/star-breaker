@@ -95,7 +95,8 @@ func _initialize() -> void:
 	var seen := {}
 	var killed_score: int = main.G.score
 	Input.action_press("fire")
-	for i in 7600:
+	var fort_seen := false
+	for i in 16000:
 		var up := (i / 90) % 2 == 0
 		if up:
 			Input.action_release("down")
@@ -106,11 +107,16 @@ func _initialize() -> void:
 		tick()
 		for e in main.G.enemies:
 			seen[e.type] = true
+		fort_seen = fort_seen or Worlds.in_fort(main.wdef, main.G.scroll + main.P.x)
 		if main.G.boss:
 			break
 	Input.action_release("up")
 	Input.action_release("down")
-	check(seen.size() == 5, "all five enemy types appear: %s" % ", ".join(seen.keys()))
+	var five := ["drifter", "turret", "hopper", "carrier", "shell"]
+	check(five.all(func(t): return seen.has(t)), "all five moon enemy types appear: %s" % ", ".join(seen.keys()))
+	check(seen.has("gun") and seen.has("generator"), "fortress towers (with guns) and locked gates (with generators) appear")
+	check(fort_seen, "the level passes through fortress sections")
+	check(main.G.t > 13000, "the level lasts much longer than before (%d s)" % (main.G.t / 60))
 	check(main.G.score > killed_score, "shooting enemies scores (%d)" % main.G.score)
 	check(main.G.warned and main.G.boss != null, "warning shows, then Bloom Mother arrives")
 	check(main.chunks.size() > 0, "cave terrain streams in")
