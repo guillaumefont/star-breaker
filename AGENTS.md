@@ -45,6 +45,7 @@ godot --headless --path . --import
 godot --headless --path . --script tests/play_test.gd    # full run: weapons, pod, enemies, boss, loop, game over
 godot --headless --path . --script tests/touch_test.gd   # floating stick and invisible touch zones
 godot --headless --path . --script tests/audio_test.gd   # songs build on the main thread, sound effects exist
+godot --headless --path . --script tests/screen_test.gd  # crash report, safe graphics, wide and narrow screens
 ```
 
 Screenshots (needs a display, e.g. `xvfb-run -a`):
@@ -59,6 +60,14 @@ Screenshots (needs a display, e.g. `xvfb-run -a`):
   (debug and release templates, Mobile renderer), so the next suspects were Android-only paths:
   sounds now use a pool of `AudioStreamPlayer`s (no `AudioStreamPolyphonic`) and stars are
   MultiMesh quads (no GL point sprites). Keep it that way unless a phone test proves otherwise.
+- Crash reports from phones: `scripts/diag.gd` writes breadcrumbs to `user://diag.log` (a TICK
+  line every second, FIRST line for each new enemy/sound/effect). If the last session didn't end
+  with SUSPEND or QUIT, the title screen shows where it stopped with a "Copy crash report" button,
+  and safe graphics turn on (no glow/MSAA now, Compatibility renderer from the next launch via
+  `user://override.cfg`). Ask Guillaume for that report instead of guessing. Add `Diag.once()`
+  breadcrumbs to new features.
+- The game fills any screen (stretch aspect `expand`). Wider than 16:9, `xm` in `main.gd` is the
+  extra stage width visible on each side: spawn and culling positions must include it.
 - `tools/soak.gd` plays in real time with simulated touches and no invincibility; use it to look
   for crashes: `godot --path . --script tools/soak.gd -- 40`.
 

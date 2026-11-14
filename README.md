@@ -67,6 +67,7 @@ godot --headless --path . --import
 godot --headless --path . --script tests/play_test.gd    # full run: stage, pod, beam, boss, loop, game over
 godot --headless --path . --script tests/touch_test.gd   # floating stick and touch zones
 godot --headless --path . --script tests/audio_test.gd   # songs build on the main thread, all sound effects exist
+godot --headless --path . --script tests/screen_test.gd  # crash report, safe graphics, wide and narrow screens
 ```
 
 Screenshots (needs a display, e.g. `xvfb-run`):

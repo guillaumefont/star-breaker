@@ -65,6 +65,7 @@ func _process(_delta: float) -> void:
 		j.i = i + 1
 		if j.i >= j.steps:
 			_songs[j.name] = _wav(j.buf, true)
+			Diag.note("SONG", "%s built" % j.name)
 			_jobs.pop_front()
 			if _want_song == j.name and not _music.playing:
 				music(_want_song)
@@ -97,6 +98,7 @@ func music(name: String) -> void:
 	if name == "" or s == null:
 		_music.stop()
 		return
+	Diag.once("music " + name)
 	_music.stream = s
 	_music.play()
 

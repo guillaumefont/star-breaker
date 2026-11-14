@@ -27,10 +27,8 @@ static func init() -> void:
 		part_o = basic("ffb547", 1.6), part_p = basic("ff4fa3", 1.6), part_w = basic("fff6e0", 1.6), part_c = basic("4fe3d6", 1.6),
 		disc = basic("0d0b1a"),
 	}
-	var wing := std("f6ffd0")
-	wing.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	wing.albedo_color.a = 0.8
-	M.wing = wing
+	# opaque on purpose: a lit see-through material was a suspect for the Android crash
+	M.wing = std("e9f2c4")
 	for k in ["rock", "rock2", "ring", "wing", "core_skin"]:
 		(M[k] as BaseMaterial3D).cull_mode = BaseMaterial3D.CULL_DISABLED
 	for k in ["planet", "ring", "far_rock"]:

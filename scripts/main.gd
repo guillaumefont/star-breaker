@@ -35,6 +35,10 @@ var script_list: Array = []
 var fx: Array = []
 var chunks: Dictionary = {}
 var _uid := 0
+## Extra stage units visible on each side when the screen is wider than 16:9 (spawns and
+## culling move out by this much so nothing pops in or out on screen).
+var xm := 0.0
+var _env: Environment
 
 var cur := {}
 var prev := {}
@@ -113,6 +117,7 @@ func fmt(n: float) -> String:
 # ---------- setup ----------
 
 func _ready() -> void:
+	Diag.start()
 	Models.init()
 	_setup_input()
 	_setup_world()
@@ -124,6 +129,7 @@ func _ready() -> void:
 	layer.add_child(hud)
 	hud.start_pressed.connect(func(): latch["start"] = true)
 	hud.mute_pressed.connect(func(): latch["mute"] = true)
+	hud.safe_toggled.connect(apply_safe)
 	script_list = build_script()
 	var cfg := ConfigFile.new()
 	if cfg.load(SAVE_PATH) == OK:
@@ -132,6 +138,11 @@ func _ready() -> void:
 	audio.set_muted(muted)
 	hud.set_muted_icon(muted)
 	hud.set_menu("title")
+	if Diag.crashed:
+		hud.show_crash_notice(Diag.summary(), Diag.report())
+	get_viewport().size_changed.connect(_on_resize)
+	_on_resize()
+	apply_safe()
 
 
 func _setup_input() -> void:
@@ -159,12 +170,11 @@ func _setup_input() -> void:
 
 func _setup_world() -> void:
 	var env := Environment.new()
-	env.background_mode = Environment.BG_SKY
-	var sky := Sky.new()
-	var sm := ShaderMaterial.new()
-	sm.shader = load("res://shaders/sky.gdshader")
-	sky.sky_material = sm
-	env.sky = sky
+	_env = env
+	# plain colour background + a gradient card far behind (no sky shader or radiance maps)
+	env.background_mode = Environment.BG_COLOR
+	env.background_color = Color("0c0a26")
+	env.reflected_light_source = Environment.REFLECTION_SOURCE_DISABLED
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color("8f8cc4")
 	env.ambient_light_energy = 0.75
@@ -215,6 +225,7 @@ func _setup_world() -> void:
 
 	world = Node3D.new()
 	add_child(world)
+	_add_backdrop()
 
 	stars = [_star_layer(260, -330, -260, 2.0, Color("9a93c8")), _star_layer(140, -240, -200, 2.5, Color("e8e4f6"))]
 	planet = Models.mesh(Geo.build(Geo.ico(62, 1)), Models.M.planet, Vector3(300, 150, -400))
@@ -248,6 +259,51 @@ func _setup_world() -> void:
 	charge_orb.visible = false
 	charge_orb.add_child(Models.glow("3ff0e0", 2.2))
 	world.add_child(charge_orb)
+
+
+func _add_backdrop() -> void:
+	var g := Gradient.new()
+	g.set_color(0, Color("1c1046"))
+	g.set_color(1, Color("071225"))
+	g.add_point(0.5, Color("0c0a26"))
+	var gt := GradientTexture2D.new()
+	gt.gradient = g
+	gt.width = 4
+	gt.height = 128
+	gt.fill_from = Vector2(0, 0)
+	gt.fill_to = Vector2(0, 1)
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.albedo_texture = gt
+	mat.disable_fog = true
+	var q := QuadMesh.new()
+	q.size = Vector2(4000, 2000)
+	var mi := MeshInstance3D.new()
+	mi.mesh = q
+	mi.material_override = mat
+	mi.position = Vector3(0, -9, -460)
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mi)
+
+
+## Wider than 16:9: keep the playfield height and show more on the sides. Narrower: keep
+## the width and show more cave above and below.
+func _on_resize() -> void:
+	var vs := get_viewport().get_visible_rect().size
+	var aspect := vs.x / maxf(1.0, vs.y)
+	if aspect >= 16.0 / 9.0:
+		camera.keep_aspect = Camera3D.KEEP_HEIGHT
+		xm = (aspect / (16.0 / 9.0) - 1.0) * W / 2.0
+	else:
+		camera.keep_aspect = Camera3D.KEEP_WIDTH
+		xm = 0.0
+	hud.apply_safe_area()
+	Diag.note("VIEW", "%s xm=%.1f" % [vs, xm])
+
+
+func apply_safe() -> void:
+	_env.glow_enabled = not Diag.safe
+	get_viewport().msaa_3d = Viewport.MSAA_DISABLED if Diag.safe else Viewport.MSAA_2X
 
 
 func _star_layer(n: int, z0: float, z1: float, size: float, color: Color) -> Node3D:
@@ -347,8 +403,8 @@ func build_chunk(c: int) -> Node3D:
 
 
 func update_chunks(scroll: float) -> void:
-	var a := floori((scroll - 8.0) / CH)
-	var b := floori((scroll + W + 8.0) / CH)
+	var a := floori((scroll - 8.0 - xm) / CH)
+	var b := floori((scroll + W + 8.0 + xm) / CH)
 	for c in chunks.keys():
 		if c < a or c > b:
 			if chunks[c]:
@@ -403,7 +459,12 @@ func hit(a: String) -> bool:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
 		latch["start"] = true
+	if what == NOTIFICATION_APPLICATION_FOCUS_IN or what == NOTIFICATION_APPLICATION_RESUMED:
+		Diag.note("RESUME")
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		Diag.note("QUIT")
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_APPLICATION_PAUSED:
+		Diag.note("SUSPEND")
 		if hud:
 			hud.touch.reset()
 		if mode == "play" and not paused:
@@ -444,6 +505,7 @@ func new_game() -> void:
 	P = {x = -10.0, y = 63.0, hw = 2.5, hh = 1.5, alive = true, inv = 0, entering = true, charge = 0, charge_held = false,
 		rapid_cd = 0, fire_hold = 0, laser = 0, speed = 0, respawn = 0, vy = 0.0, ready_lv = 0}
 	pod = {state = "none", x = 0.0, y = 0.0, hw = 3.6, hh = 3.6, tx = 0.0, grab_cd = 0, hit_cd = 0}
+	Diag.note("PLAY")
 	mode = "play"
 	paused = false
 	hud.set_menu("play")
@@ -475,6 +537,7 @@ func bm() -> float:
 
 
 func game_over() -> void:
+	Diag.note("GAMEOVER")
 	mode = "over"
 	G.over_t = 0
 	audio.music("")
@@ -540,6 +603,7 @@ func E(type: String, x: float, y: float, o := {}) -> Dictionary:
 		"carrier": e.m = Models.carrier(e.drop)
 		_: e.m = Models.shell()
 	world.add_child(e.m)
+	Diag.once("spawn " + type)
 	G.enemies.append(e)
 	sync_e(e)
 	return e
@@ -549,19 +613,19 @@ func spawn(s: Dictionary) -> void:
 	match s.type:
 		"wave":
 			for i in s.n:
-				E("drifter", W + 8 + i * 13, s.y, {by = s.y, ph = i * 0.6, amp = s.amp})
+				E("drifter", W + 8 + xm + i * 13, s.y, {by = s.y, ph = i * 0.6, amp = s.amp})
 		"turret":
 			var h := ceil_h(s.x) if s.side else floor_h(s.x)
 			if h > 6.0:
-				E("turret", W + 8, 0, {wx = s.x, side = s.side, rate = maxi(60, 120 - 18 * (G.loop - 1)) + int(fmod(s.x, 37.0))})
+				E("turret", W + 8 + xm, 0, {wx = s.x, side = s.side, rate = maxi(60, 120 - 18 * (G.loop - 1)) + int(fmod(s.x, 37.0))})
 		"carrier":
-			E("carrier", W + 10, s.y, {by = s.y, drop = s.drop})
+			E("carrier", W + 10 + xm, s.y, {by = s.y, drop = s.drop})
 		"shell":
-			E("shell", W + 14, s.y, {by = s.y, stay = 260})
+			E("shell", W + 14 + xm, s.y, {by = s.y, stay = 260})
 		"hopper":
 			var y := 98.0 if P.y < 63 else 28.0
 			for i in s.n:
-				E("hopper", -8 - i * 16, y + (8.0 if i % 2 else -8.0), {vx = 1.7})
+				E("hopper", -8 - xm - i * 16, y + (8.0 if i % 2 else -8.0), {vx = 1.7})
 
 
 func aim(x: float, y: float, s: float) -> void:
@@ -657,6 +721,7 @@ func fire_beam(lv: int) -> void:
 	b.m = g
 	world.add_child(g)
 	G.pb.append(b)
+	Diag.once("beam")
 	audio.play("beam", lv)
 	shake = maxf(shake, lv * 2.0)
 
@@ -671,6 +736,7 @@ func glow_fx(color: String, x3: float, y3: float, z: float, s: float, life: int,
 
 
 func boom(x: float, y: float, r: float, big := false) -> void:
+	Diag.once("explosion")
 	var n := mini(26, 4 + int(r * 1.3))
 	var mats := [Models.M.part_o, Models.M.part_p, Models.M.part_w]
 	for i in n:
@@ -772,6 +838,7 @@ func dmg_e(e: Dictionary, d: int) -> void:
 
 func drop_item(x: float, y: float, k: String) -> void:
 	var it := {x = x, y = y, kind = k, t = 0, hw = 4.0, hh = 4.0, dead = false}
+	Diag.once("item")
 	it.m = Models.item(k)
 	world.add_child(it.m)
 	G.items.append(it)
@@ -800,10 +867,11 @@ func spawn_boss() -> void:
 	var angles := [-2.35, -1.3, 1.3, 2.35]
 	for i in 4:
 		petals.append({id = uid(), a = angles[i], hp = 14 * k, max = 14 * k, alive = true, flash = 0, cd = 70 + i * 28, x = 0.0, y = 0.0})
-	G.boss = {x = W + 46, y = 63.0, t = 0, bt = 0, enter = true, phase2 = false, dying = 0,
+	G.boss = {x = W + 46 + xm, y = 63.0, t = 0, bt = 0, enter = true, phase2 = false, dying = 0,
 		core = {id = uid(), hp = 70 * k, max = 70 * k, flash = 0, open = false, ot = 0, lid = 0.0},
 		petals = petals,
 		tent = {id = uid(), n = 13, hp = 28 * k, max = 28 * k, alive = true, flash = 0, cd = 150, segs = [], drop = 0}}
+	Diag.once("boss")
 	G.boss.m = Models.boss(world)
 	audio.music("boss")
 	hud.show_boss(true)
@@ -1035,9 +1103,14 @@ func in_wall(x: float, y: float, pad: float) -> bool:
 
 func step() -> void:
 	G.t += 1
+	if G.t % 60 == 0:
+		Diag.note("TICK", "t=%d scroll=%d fps=%d nodes=%d objs=%d mem=%.0fMB vmem=%.0fMB draws=%d enemies=%d fx=%d" % [G.t, G.scroll,
+			Engine.get_frames_per_second(), Performance.get_monitor(Performance.OBJECT_NODE_COUNT), Performance.get_monitor(Performance.OBJECT_COUNT),
+			OS.get_static_memory_usage() / 1048576.0, Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576.0,
+			Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), G.enemies.size(), fx.size()])
 	if G.scroll < BOSS_AT:
 		G.scroll = minf(BOSS_AT, G.scroll + 0.5)
-	while G.si < script_list.size() and script_list[G.si].x <= G.scroll + W + 8:
+	while G.si < script_list.size() and script_list[G.si].x <= G.scroll + W + 8 + xm:
 		spawn(script_list[G.si])
 		G.si += 1
 	if not G.warned and G.scroll >= BOSS_AT - 100:
@@ -1167,7 +1240,7 @@ func step() -> void:
 	for b in G.pb:
 		b.x += b.vx
 		b.y += b.vy
-		if b.x > W + 30 or b.x < -30 or b.y < -10 or b.y > PH + 10:
+		if b.x > W + 30 + xm or b.x < -30 - xm or b.y < -10 or b.y > PH + 10:
 			b.dead = true
 			continue
 		if not b.beam and in_wall(b.x, b.y, 0):
@@ -1246,9 +1319,9 @@ func step() -> void:
 				else:
 					e.x -= 0.75
 				e.y = e.by + sin(e.t * 0.03) * 10.0
-		if e.x < -26 and (e.type != "hopper" or e.t > 60):
+		if e.x < -26 - xm and (e.type != "hopper" or e.t > 60):
 			e.dead = true
-		if e.x > W + 70:
+		if e.x > W + 70 + xm:
 			e.dead = true
 		if e.dead:
 			continue
@@ -1275,7 +1348,7 @@ func step() -> void:
 	for b in G.eb:
 		b.x += b.vx
 		b.y += b.vy
-		if b.x < -8 or b.x > W + 8 or b.y < -8 or b.y > PH + 8 or in_wall(b.x, b.y, 0):
+		if b.x < -8 - xm or b.x > W + 8 + xm or b.y < -8 or b.y > PH + 8 or in_wall(b.x, b.y, 0):
 			b.dead = true
 			continue
 		if pod.state != "none" and ov(b, pod):
@@ -1291,7 +1364,7 @@ func step() -> void:
 		it.t += 1
 		it.x -= 0.4
 		it.y += sin(it.t * 0.08) * 0.3
-		if it.x < -10:
+		if it.x < -10 - xm:
 			it.dead = true
 			continue
 		if P.alive and absf(it.x - P.x) < 9 and absf(it.y - P.y) < 8:
@@ -1372,6 +1445,10 @@ func update() -> void:
 						hud.show_hints(false)
 	if shake > 0.0:
 		shake *= 0.85
+
+
+func _exit_tree() -> void:
+	Diag.note("QUIT")
 
 
 func _physics_process(_delta: float) -> void:
@@ -1469,6 +1546,6 @@ func warp(x: float) -> void:
 	G.scroll = x
 	G.si = script_list.size()
 	for i in script_list.size():
-		if script_list[i].x > x + W + 8:
+		if script_list[i].x > x + W + 8 + xm:
 			G.si = i
 			break
