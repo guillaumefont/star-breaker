@@ -109,6 +109,8 @@ the pod model spins on its `spin` child around X, the root only turns it to face
   Towers and locked gates are gates (`add_gate` modes "tower" and "locked"); a locked gate
   opens once no `generator` with its key is alive. Terrain heights come from `Worlds.heights(world, wx)`; a level
   script entry with `y < 0` spawns on the corridor centre line, so waves fit inside tunnels.
+- Chunks are built and freed `chunk_pad()` beyond the play plane edges, sized for the deepest
+  plane (`FortDeco.BACK_Z`): anything placed deeper needs that constant moved or it pops in.
 - Fortress decoration (Guillaume's pick, 2026-11-14: option "C", dressed plating plus a dark back
   wall with lit windows) is `scripts/fort_deco.gd`, built with each fortress chunk and merged into
   one mesh per material (at most 7 draw calls a chunk). Visual only: anything in front of z = -10

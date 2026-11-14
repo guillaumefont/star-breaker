@@ -12,6 +12,7 @@ extends RefCounted
 static var enabled := true
 
 const ZF := 11.0  # front face of the plating (see Main.terrain_tris)
+const BACK_Z := -31.0  # back face of the back wall, the deepest part of a chunk (Main.chunk_pad)
 const PH := 126.0
 
 var parts := {}
@@ -216,7 +217,7 @@ func _theme_prop(base: Transform3D) -> void:
 
 ## A dark back wall closing the corridor, with ribs and rows of lit windows.
 func _back_wall(et: Array, eb: Array) -> void:
-	var z := -30.0
+	var z := BACK_Z + 1.0
 	for i in 8:
 		quad("back", Vector3(i * 8.0, eb[i], z), Vector3(i * 8.0 + 8.0, eb[i + 1], z), Vector3(i * 8.0 + 8.0, et[i + 1], z), Vector3(i * 8.0, et[i], z), Vector3.BACK)
 	for i in [0, 2, 4, 6]:

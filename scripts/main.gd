@@ -565,9 +565,17 @@ func build_chunk(c: int) -> Node3D:
 	return grp
 
 
+## Chunks reach back to the fortress back wall (FortDeco.BACK_Z), and the deeper a plane, the
+## wider the slice of it the camera sees: chunks are built and freed this far beyond the
+## edges of the play plane so nothing pops in or out on screen, whatever the screen shape.
+func chunk_pad() -> float:
+	return 8.0 + (W / 2.0 + xm) * (-FortDeco.BACK_Z + 2.0) / CAM.z
+
+
 func update_chunks(scroll: float) -> void:
-	var a := floori((scroll - 8.0 - xm) / CH)
-	var b := floori((scroll + W + 8.0 + xm) / CH)
+	var pad := chunk_pad()
+	var a := floori((scroll - pad - xm) / CH)
+	var b := floori((scroll + W + pad + xm) / CH)
 	for c in chunks.keys():
 		if c < a or c > b:
 			if chunks[c]:
