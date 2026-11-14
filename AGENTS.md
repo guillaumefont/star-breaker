@@ -51,6 +51,7 @@ godot --headless --path . --script tests/screen_test.gd  # crash report, safe gr
 godot --headless --path . --script tests/update_test.gd  # self-update: pack download, checks, APK offer
 godot --headless --path . --script tests/icon_test.gd    # project icon and Android launcher icon layers
 godot --headless --path . --script tests/fort_test.gd    # fortress decoration: draw calls, back wall, corridor kept clear
+godot --headless --path . --script tests/balance_test.gd # power-up spacing, losing the pod on death, pod ram, late worlds
 ```
 
 Screenshots (needs a display, e.g. `xvfb-run -a`):
@@ -89,7 +90,7 @@ the pod model spins on its `spin` child around X, the root only turns it to face
 
 - The title screen is the main menu: two mode cards, **Normal** (the campaign, ends on the
   ending screen) and **Endless** (`G.mode == "endless"`: after world 4 it loops to world 1
-  with `G.lap += 1`, never shows the ending). `diff()` adds 2 per lap; `bm()` is capped at 1.7.
+  with `G.lap += 1`, never shows the ending). `diff()` adds 2 per lap; `bm()` is capped at `BM_MAX` (1.9).
 - Each mode has its own best (`bests`, saved as `best` and `best_endless`); `hiscore` mirrors
   the mode being played. The last mode played is saved and preselected.
 - Keyboard/gamepad move the selection (`hud.select_mode`), Enter/Fire plays it; on touch only a
@@ -124,6 +125,17 @@ the pod model spins on its `spin` child around X, the root only turns it to face
   entry of `Models.M` plus every model, so add new models there too.
 - `Sfx.music()` always stops the player before swapping songs and logs a `MUSIC` breadcrumb, so
   a crash report shows which song change it died on.
+
+## Balance (2026-11-14)
+
+- Guillaume found the game too easy once the pod and lasers were picked up early. Power-ups
+  now come at most once per `Worlds.DROP_GAP` (~45 s): `_thin_drops()` drops extra carriers
+  after the level is built (so the seeded layout stays the same) and hands out `DROP_ORDER`
+  (pod, laser, speed, laser).
+- Losing a ship resets the lasers, costs a speed step and drops the pod as a P item that
+  drifts away (fly through it to dock it again). The pod rams for 1 damage every
+  `POD_RAM_CD` ticks; the spread's angled shots never do heavy damage.
+- Enemies get +20% hit points and +10% bullet speed per world (`diff()`), capped at `BM_MAX`.
 
 ## Charge lance
 

@@ -81,7 +81,7 @@ func _initialize() -> void:
 	probe.m.queue_free()
 	check(hp >= 2, "enemies have more hit points on lap 2 (%d)" % hp)
 	main.G.lap = 20
-	check(main.bm() <= 1.7, "bullet speed is capped on late laps")
+	check(main.bm() <= main.BM_MAX, "bullet speed is capped on late laps")
 	main.G.lap = 1
 
 	# its own best score
