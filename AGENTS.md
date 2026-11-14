@@ -63,9 +63,13 @@ Screenshots (needs a display, e.g. `xvfb-run -a`):
 - Crash reports from phones: `scripts/diag.gd` writes breadcrumbs to `user://diag.log` (a TICK
   line every second, FIRST line for each new enemy/sound/effect). If the last session didn't end
   with SUSPEND or QUIT, the title screen shows where it stopped with a "Copy crash report" button,
-  and safe graphics turn on (no glow/MSAA now, Compatibility renderer from the next launch via
-  `user://override.cfg`). Ask Guillaume for that report instead of guessing. Add `Diag.once()`
+  and safe graphics turn on (no glow/MSAA). Ask Guillaume for that report instead of guessing. Add `Diag.once()`
   breadcrumbs to new features.
+- Android uses the Compatibility (OpenGL ES) renderer: on Guillaume's Pixel (PowerVR GPU) the
+  Vulkan Mobile renderer hitched each time a new kind of object appeared and then crashed. An
+  `override.cfg` renderer switch was ignored there, so it is set in `project.godot`.
+- `_warm_up()` in `main.gd` draws every model and material once behind the title screen; add any
+  new model or material to it so its first appearance in a run doesn't hitch.
 - The game fills any screen (stretch aspect `expand`). Wider than 16:9, `xm` in `main.gd` is the
   extra stage width visible on each side: spawn and culling positions must include it.
 - `tools/soak.gd` plays in real time with simulated touches and no invincibility; use it to look

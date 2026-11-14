@@ -28,14 +28,21 @@ func _initialize() -> void:
 	await process_frame
 	check(Diag.crashed, "an unfinished log is detected as a crash")
 	check(Diag.safe, "safe graphics switched on after a crash")
-	check(FileAccess.file_exists(Diag.OVERRIDE) and FileAccess.get_file_as_string(Diag.OVERRIDE).contains("gl_compatibility"),
-		"Compatibility renderer requested for the next launch")
+	check(ProjectSettings.get_setting("rendering/renderer/rendering_method.mobile") == "gl_compatibility",
+		"Android uses the Compatibility renderer (Vulkan crashed on a Pixel's PowerVR GPU)")
+	await process_frame
+	await process_frame
+	await process_frame
+	await process_frame
+	await process_frame
+	check(FileAccess.get_file_as_string(Diag.PATH).contains(" WARM "), "every model drawn once behind the title screen")
+	check(main.get_child_count() < 40 and main.world.get_child_count() < 200, "warm-up objects are removed")
 	check(Diag.summary().contains("spawn carrier"), "summary names the last new thing: " + Diag.summary())
 	check(Diag.report().contains("TICK t=240"), "report holds the previous log")
 	check(main.hud._crash.visible, "title screen shows the crash notice")
 	check(not main._env.glow_enabled and main.get_viewport().msaa_3d == Viewport.MSAA_DISABLED, "glow and MSAA off in safe mode")
 	main.hud._btn_gfx.pressed.emit()
-	check(not Diag.safe and not FileAccess.file_exists(Diag.OVERRIDE) and main._env.glow_enabled, "toggle back to full graphics")
+	check(not Diag.safe and main._env.glow_enabled, "toggle back to full graphics")
 	check(FileAccess.get_file_as_string(Diag.PATH).contains("START"), "this session is logging")
 
 	# screen shapes
