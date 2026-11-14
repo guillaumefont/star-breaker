@@ -49,16 +49,16 @@ func _initialize() -> void:
 				touch(1, stick, false)
 			if frame % 25 == 0:
 				fire_down = not fire_down
-				touch(2, Vector2(vs.x * 0.86, vs.y * 0.7), fire_down)
+				touch(2, Vector2(vs.x * 0.75, vs.y * 0.85), fire_down)
 			if frame % 150 == 0:
 				charge_down = true
-				touch(3, Vector2(vs.x * 0.62, vs.y * 0.7), true)
+				touch(3, Vector2(vs.x * 0.75, vs.y * 0.5), true)
 			if charge_down and frame % 150 == 110:
 				charge_down = false
-				touch(3, Vector2(vs.x * 0.62, vs.y * 0.7), false)
+				touch(3, Vector2(vs.x * 0.75, vs.y * 0.5), false)
 			if frame % 200 == 100:
-				touch(4, Vector2(vs.x * 0.8, vs.y * 0.3), true)
-				touch(4, Vector2(vs.x * 0.8, vs.y * 0.3), false)
+				touch(4, Vector2(vs.x * 0.8, vs.y * 0.2), true)
+				touch(4, Vector2(vs.x * 0.8, vs.y * 0.2), false)
 		if frame % 120 == 0:
 			print("t=%.1fs mode=%s score=%s lives=%s enemies=%d fx=%d nodes=%d" % [(Time.get_ticks_msec() - t0) / 1000.0, main.mode,
 				main.G.get("score", 0), main.G.get("lives", 0), main.G.get("enemies", []).size(), main.fx.size(), main.world.get_child_count()])

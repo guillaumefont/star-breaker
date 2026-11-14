@@ -542,7 +542,7 @@ func _build_title() -> Control:
 	kr.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(kr)
 	_key_rows.append(kr)
-	var tr := _keys([["Left", "Move"], ["Right", "Charge · Fire"], ["Top right", "Pod"]], 900)
+	var tr := _keys([["Left", "Move"], ["Right, bottom up", "Fire · Charge · Pod"]], 900)
 	tr.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(tr)
 	_touch_rows.append(tr)
@@ -635,6 +635,7 @@ func apply_safe_area() -> void:
 	var k := get_viewport_rect().size.x / win.x
 	_hud.offset_left = maxf(0.0, sa.position.x * k)
 	_hud.offset_right = -maxf(0.0, (win.x - sa.end.x) * k)
+	touch.set_safe_insets(_hud.offset_left, -_hud.offset_right)
 
 
 func _build_over() -> Control:

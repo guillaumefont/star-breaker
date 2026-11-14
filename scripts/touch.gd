@@ -2,11 +2,14 @@ class_name TouchPad
 extends Control
 ## Touch controls with no visible buttons: the left half is a floating analog stick that
 ## appears where the thumb lands and follows it; the right half is split into invisible
-## zones (Pod strip on top, then Charge | Fire). A faint map of the zones shows
-## for the first seconds of a run.
+## zones stacked bottom up: Fire, Charge, Pod. A faint map of the zones shows for the
+## first seconds of a run.
 
 const ZC := {fire = Color("3ff0e0"), charge = Color("8c7bff"), pod = Color("ff4fa3")}
 const RADIUS := 65.0
+const RIGHT := 0.48             ## right-hand zones start here (fraction of the width)
+const POD_END := 0.355          ## Pod above this (fraction of the height) ...
+const FIRE_START := 0.645       ## ... Fire below this, Charge in between
 
 var hud: Hud
 var enabled := false
@@ -32,9 +35,9 @@ func _ready() -> void:
 	_zones.modulate.a = 0.0
 	add_child(_zones)
 	_zone(Rect2(0.02, 0.20, 0.44, 0.76), "MOVE", "Touch anywhere here")
-	_zone(Rect2(0.50, 0.20, 0.48, 0.22), "POD", "Tap to launch or recall")
-	_zone(Rect2(0.50, 0.45, 0.23, 0.51), "CHARGE", "Hold, release")
-	_zone(Rect2(0.75, 0.45, 0.23, 0.51), "FIRE", "Tap, or hold for rapid")
+	_zone(Rect2(0.50, 0.17, 0.48, 0.165), "POD", "Tap to launch or recall")
+	_zone(Rect2(0.50, 0.375, 0.48, 0.25), "CHARGE", "Hold, release")
+	_zone(Rect2(0.50, 0.665, 0.48, 0.295), "FIRE", "Tap, or hold for rapid")
 
 
 func _zone(r: Rect2, title: String, sub: String) -> void:
@@ -71,17 +74,23 @@ func _zone(r: Rect2, title: String, sub: String) -> void:
 	v.add_child(b)
 
 
+## Keeps the zone map clear of notches (the zones themselves still reach the screen edge).
+func set_safe_insets(left: float, right: float) -> void:
+	_zones.offset_left = left
+	_zones.offset_right = -right
+
+
 func show_zones(on: bool) -> void:
 	var tw := create_tween()
 	tw.tween_property(_zones, "modulate:a", 1.0 if on and enabled else 0.0, 0.3 if on else 1.0)
 
 
 static func zone_at(fx: float, fy: float) -> String:
-	if fx < 0.48:
+	if fx < RIGHT:
 		return "move"
-	if fy < 0.43:
+	if fy < POD_END:
 		return "pod"
-	if fx < 0.74:
+	if fy < FIRE_START:
 		return "charge"
 	return "fire"
 

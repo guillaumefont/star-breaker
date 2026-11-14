@@ -63,9 +63,13 @@ func _initialize() -> void:
 	check(tp.stick_id == -1, "stick disappears on release")
 
 	var n: int = main.G.pb.size()
-	var fire_at := Vector2(vs.x * 0.86, vs.y * 0.7)
-	var charge_at := Vector2(vs.x * 0.62, vs.y * 0.7)
-	check(TouchPad.zone_at(0.86, 0.7) == "fire" and TouchPad.zone_at(0.62, 0.7) == "charge", "Charge zone sits left of Fire")
+	var fire_at := Vector2(vs.x * 0.75, vs.y * 0.85)
+	var charge_at := Vector2(vs.x * 0.75, vs.y * 0.5)
+	for fx in [0.55, 0.75, 0.95]:
+		check(TouchPad.zone_at(fx, 0.9) == "fire" and TouchPad.zone_at(fx, 0.7) == "fire"
+			and TouchPad.zone_at(fx, 0.5) == "charge" and TouchPad.zone_at(fx, 0.2) == "pod"
+			and TouchPad.zone_at(fx, 0.02) == "pod",
+			"right side stacks Fire, Charge, Pod bottom up at x=%.2f" % fx)
 	touch(2, fire_at, true)
 	touch(2, fire_at, false)
 	tick()
@@ -85,10 +89,10 @@ func _initialize() -> void:
 
 	main.drop_item(main.P.x, main.P.y, "P")
 	tick(2)
-	touch(5, Vector2(vs.x * 0.75, vs.y * 0.3), true)
-	touch(5, Vector2(vs.x * 0.75, vs.y * 0.3), false)
+	touch(5, Vector2(vs.x * 0.75, vs.y * 0.2), true)
+	touch(5, Vector2(vs.x * 0.75, vs.y * 0.2), false)
 	tick()
-	check(main.pod.state == "free", "tapping the top-right strip launches the pod")
+	check(main.pod.state == "free", "tapping the top-right zone launches the pod")
 
 	var pause_btn: Button = main.hud._btn_pause
 	var bp := pause_btn.get_global_rect().get_center()

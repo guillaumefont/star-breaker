@@ -4,7 +4,7 @@ Star Breaker is an original low poly 3D side-scrolling shooter in Godot 4.7, in 
 R-Type II but with all-original content: never use R-Type names, art, enemies or levels.
 Guillaume wants a modern mobile-game look (glass HUD, bloom, Rubik font), not retro.
 Controls (2026-11-13): one Fire action (tap = heavy shot, hold = rapid fire) and Charge; on touch
-the right side is a Pod strip on top, then Charge | Fire below.
+the right side is one vertical stack, bottom up: Fire, Charge, Pod (2026-11-14).
 
 ## Pull requests
 
