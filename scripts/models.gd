@@ -26,10 +26,20 @@ static func init() -> void:
 		planet = std("5a3d8f", "1a0c2e", 0.8), ring = std("8a74c9"),
 		part_o = basic("ffb547", 1.6), part_p = basic("ff4fa3", 1.6), part_w = basic("fff6e0", 1.6), part_c = basic("4fe3d6", 1.6),
 		disc = basic("0d0b1a"),
+		# world 2: Frost Rift
+		ice_rock = std("5f7fae"), ice_rock2 = std("4d6c9c"), ice_c = std("bff6ff", "7fe8ff", 1.3), ice_b = std("8fd8ff", "3fa8ff", 0.9),
+		frost = std("e6f6ff", "9fdcff", 0.25), frost_dark = std("2d4f7a"), ice_core = std("aef8ff", "5fe0ff", 1.4),
+		# world 3: Iron Foundry
+		metal_rock = std("5b4a44"), metal_rock2 = std("4a3d3a"), steel = std("9aa0b0"), steel_dark = std("3b3f4d"),
+		rust = std("b5552a"), hot = std("ff7a1a", "ff5a00", 1.6), hazard = std("ffcc33", "805a00", 0.4),
+		# world 4: Star Core
+		magma_rock = std("6b2a2a", "300800", 0.5), magma_rock2 = std("552222", "300800", 0.5), lava = std("ff6a1a", "ff4000", 1.8),
+		gold = std("ffd25a", "ff9a00", 0.8), corona = std("fff0b0", "ffcc40", 2.0), ash = std("3a2422"),
+		gate = std("8a93ab", "202840", 0.3),
 	}
 	# opaque on purpose: a lit see-through material was a suspect for the Android crash
 	M.wing = std("e9f2c4")
-	for k in ["rock", "rock2", "ring", "wing", "core_skin"]:
+	for k in ["rock", "rock2", "ice_rock", "ice_rock2", "metal_rock", "metal_rock2", "magma_rock", "magma_rock2", "ring", "wing", "core_skin"]:
 		(M[k] as BaseMaterial3D).cull_mode = BaseMaterial3D.CULL_DISABLED
 	for k in ["planet", "ring", "far_rock"]:
 		(M[k] as BaseMaterial3D).disable_fog = true
@@ -338,6 +348,279 @@ static func boss(world: Node3D) -> Node3D:
 		s.rotation.z = i * 1.047
 		u.tip.add_child(s)
 	world.add_child(u.tip)
+	g.set_meta("u", u)
+	world.add_child(g)
+	return g
+
+
+# ---------- world 2: Frost Rift ----------
+
+## Crystal dart: stops, takes aim, then lunges.
+static func shard() -> Node3D:
+	var g := Node3D.new()
+	var b := mesh(geo("shd", func(): return Geo.octa(3)), M.ice_c)
+	b.scale = Vector3(2.0, 0.7, 0.7)
+	g.add_child(b)
+	var f := geo("shdF", func(): return Geo.prism([[-2, 0], [2, 0], [-3, 4]], 0.4))
+	for sg in [1.0, -1.0]:
+		var fin := mesh(f, M.frost_dark, Vector3(1, 0.6 * sg, 0))
+		fin.scale.y = sg
+		g.add_child(fin)
+	return g
+
+
+## Hangs from the ceiling and drops when the ship passes under it.
+static func icicle() -> Node3D:
+	var g := Node3D.new()
+	var c := mesh(geo("icl", func(): return Geo.cone(2.6, 9, 5)), M.ice_b)
+	c.rotation.z = PI
+	g.add_child(c)
+	var c2 := mesh(geo("icl2", func(): return Geo.cone(1.4, 5, 4)), M.frost, Vector3(2, 1, 1))
+	c2.rotation.z = PI
+	g.add_child(c2)
+	return g
+
+
+## Spinning snowflake that sheds bullets in a cross.
+static func flake() -> Node3D:
+	var g := Node3D.new()
+	g.add_child(mesh(geo("flC", func(): return Geo.ico(2.4, 0)), M.ice_core))
+	var arm := geo("flA", func(): return Geo.xf(Geo.octa(1.2), Transform3D(Basis().scaled(Vector3(1, 3.2, 1)), Vector3(0, 4.4, 0))))
+	for i in 6:
+		var a := mesh(arm, M.frost)
+		a.rotation.z = i * TAU / 6.0
+		g.add_child(a)
+	return g
+
+
+## Heavy armoured ice hulk (behaves like the moon's shell beast).
+static func hulk() -> Node3D:
+	var g := Node3D.new()
+	var s := mesh(geo("hk", func(): return Geo.dodeca(7.5)), M.ice_rock)
+	s.scale = Vector3(1.3, 0.9, 1)
+	g.add_child(s)
+	var sp := geo("hkS", func(): return Geo.cone(1.8, 6, 4))
+	for i in 4:
+		var c := mesh(sp, M.ice_c, Vector3(-5 + i * 3.6, 6.5 - absf(i - 1.5) * 0.8, 0))
+		c.rotation.z = (i - 1.5) * -0.25
+		g.add_child(c)
+	g.add_child(mesh(geo("hkE", func(): return Geo.ico(1.8, 0)), M.eye, Vector3(-9.6, 0, 3)))
+	return g
+
+
+# ---------- world 3: Iron Foundry ----------
+
+static func drone() -> Node3D:
+	var g := Node3D.new()
+	var b := mesh(geo("drn", func(): return Geo.octa(2.6)), M.steel)
+	b.scale = Vector3(1.5, 0.7, 1.2)
+	g.add_child(b)
+	var w := geo("drnW", func(): return Geo.box(1.6, 0.5, 7))
+	g.add_child(mesh(w, M.steel_dark, Vector3(0.5, 0, 0)))
+	g.add_child(mesh(geo("drnE", func(): return Geo.ico(0.9, 0)), M.hot, Vector3(-3.6, 0, 0)))
+	g.add_child(mesh(geo("eyeS", func(): return Geo.ico(0.9, 0)), M.eye, Vector3(3.2, 0.3, 1)))
+	return g
+
+
+## Wall piston: a rod and a hammer head that slam out of the ceiling or floor.
+static func piston(side: int) -> Node3D:
+	var g := Node3D.new()
+	var w := 1.0 if side else -1.0
+	g.add_child(mesh(geo("psB", func(): return Geo.box(9, 4, 8)), M.steel_dark, Vector3(0, w * 2, 0)))
+	var rod := mesh(geo("psR", func(): return Geo.cyl(1.4, 1.4, 1, 6)), M.steel)
+	g.add_child(rod)
+	var head := Node3D.new()
+	head.add_child(mesh(geo("psH", func(): return Geo.box(8, 4, 7)), M.rust))
+	head.add_child(mesh(geo("psS", func(): return Geo.box(8.4, 1, 7.4)), M.hazard, Vector3(0, -w * 1.6, 0)))
+	g.add_child(head)
+	g.set_meta("rod", rod)
+	g.set_meta("head", head)
+	return g
+
+
+## Floor crawler tank with a turret that tracks the ship.
+static func crawler() -> Node3D:
+	var g := Node3D.new()
+	g.add_child(mesh(geo("crB", func(): return Geo.box(10, 3.4, 6)), M.rust))
+	g.add_child(mesh(geo("crT", func(): return Geo.box(12, 2, 7)), M.steel_dark, Vector3(0, -2.4, 0)))
+	g.add_child(mesh(geo("crD", func(): return Geo.hemi(3, 6, 2)), M.steel, Vector3(0, 1.6, 0)))
+	var piv := Node3D.new()
+	piv.position.y = 2.6
+	g.add_child(piv)
+	piv.add_child(mesh(geo("crG", func(): return Geo.box(5.5, 1, 1)), M.steel_dark, Vector3(3, 0, 0)))
+	g.set_meta("piv", piv)
+	return g
+
+
+## Foundry gun emplacement (behaves like the moon's turret).
+static func gun(side: int) -> Node3D:
+	var g := Node3D.new()
+	var w := 1.0 if side else -1.0
+	g.add_child(mesh(geo("gnB", func(): return Geo.box(8, 3, 7)), M.steel_dark, Vector3(0, w * 1.6, 0)))
+	g.add_child(mesh(geo("gnD", func(): return Geo.ico(2.6, 0)), M.steel, Vector3(0, -w * 0.4, 0)))
+	var piv := Node3D.new()
+	piv.position.y = -w * 0.4
+	g.add_child(piv)
+	piv.add_child(mesh(geo("gnBar", func(): return Geo.box(5.5, 1.3, 1.3)), M.hot, Vector3(3, 0, 0)))
+	g.set_meta("piv", piv)
+	return g
+
+
+# ---------- world 4: Star Core ----------
+
+static func ember() -> Node3D:
+	var g := Node3D.new()
+	g.add_child(mesh(geo("emb", func(): return Geo.ico(2.4, 0)), M.lava))
+	var gl := glow("ff9a40", 9)
+	g.add_child(gl)
+	return g
+
+
+static func seeker() -> Node3D:
+	var g := Node3D.new()
+	var b := mesh(geo("skr", func(): return Geo.cone(2.2, 6, 4)), M.gold)
+	b.rotation.z = PI / 2
+	g.add_child(b)
+	g.add_child(mesh(geo("skrE", func(): return Geo.ico(1.1, 0)), M.eye, Vector3(2.2, 0, 1)))
+	var fl := mesh(geo("skrF", func(): return Geo.ico(1.3, 0)), M.engine, Vector3(-3.4, 0, 0))
+	fl.set_meta("nf", true)
+	g.add_child(fl)
+	return g
+
+
+## Gold sentinel (behaves like the moon's shell beast).
+static func sentinel() -> Node3D:
+	var g := Node3D.new()
+	var s := mesh(geo("snt", func(): return Geo.octa(8)), M.gold)
+	s.scale = Vector3(1.3, 0.9, 0.8)
+	g.add_child(s)
+	var r := mesh(Geo.cached("sntR", func(): return Geo.build_facing(Geo.ring(8.5, 10.5, 12), Vector3.BACK)), M.ash)
+	g.add_child(r)
+	g.add_child(mesh(geo("she", func(): return Geo.ico(1.7, 0)), M.eye, Vector3(-9.4, 0, 2.5)))
+	g.set_meta("ring", r)
+	return g
+
+
+# ---------- level geometry ----------
+
+## A block of a breakable wall. `mat` follows the world.
+static func block(mat: Material) -> Node3D:
+	var g := Node3D.new()
+	var b := mesh(geo("blk", func(): return Geo.box(7.4, 7.4, 9)), mat)
+	b.rotation.x = 0.12
+	g.add_child(b)
+	var c := mesh(geo("blkC", func(): return Geo.octa(2.2)), M.gate, Vector3(0, 0, 4.6))
+	g.add_child(c)
+	return g
+
+
+## Gate: a top and a bottom pillar with glowing lips around the opening.
+static func gate(glow_mat: Material) -> Node3D:
+	var g := Node3D.new()
+	var col := geo("gtP", func(): return Geo.box(1, 1, 1))
+	var lip := geo("gtL", func(): return Geo.box(8, 2, 12))
+	var u := {}
+	for k in ["top", "bot"]:
+		var p := mesh(col, M.gate)
+		g.add_child(p)
+		u[k] = p
+		var l := mesh(lip, glow_mat)
+		g.add_child(l)
+		u[k + "_lip"] = l
+	g.set_meta("u", u)
+	return g
+
+
+# ---------- bosses of worlds 2 to 4 ----------
+## Each returns a root node (added to `world`, kept at the origin) whose meta "u" maps part
+## keys to the nodes main.gd moves around in stage coordinates.
+
+static func boss_prism(world: Node3D) -> Node3D:
+	var g := Node3D.new()
+	var u := {}
+	var core := Node3D.new()
+	core.add_child(mesh(geo("pwC", func(): return Geo.octa(11)), M.ice_core))
+	var rg := mesh(Geo.cached("pwR", func(): return Geo.build_facing(Geo.ring(13, 15.5, 16), Vector3.BACK)), M.frost_dark)
+	core.add_child(rg)
+	core.add_child(mesh(geo("pwE", func(): return Geo.ico(3.4, 1)), M.eye, Vector3(-6, 0, 6)))
+	g.add_child(core)
+	u.core = core
+	for k in ["top", "bot"]:
+		var p := Node3D.new()
+		var b := mesh(geo("pwP", func(): return Geo.octa(6.5)), M.ice_c)
+		b.scale = Vector3(0.8, 1.7, 0.8)
+		p.add_child(b)
+		p.add_child(mesh(geo("pwPs", func(): return Geo.ico(2, 0)), M.eye, Vector3(-4, 0, 3)))
+		g.add_child(p)
+		u[k] = p
+		var beam := mesh(geo("pwB", func(): return Geo.box(1, 1, 1)), M.frost_dark)
+		g.add_child(beam)
+		u[k + "_beam"] = beam
+	g.set_meta("u", u)
+	world.add_child(g)
+	return g
+
+
+static func boss_titan(world: Node3D) -> Node3D:
+	var g := Node3D.new()
+	var u := {}
+	var hull := Node3D.new()
+	hull.add_child(mesh(geo("ttH", func(): return Geo.box(34, 46, 22)), M.steel_dark))
+	hull.add_child(mesh(geo("ttF", func(): return Geo.box(6, 50, 24)), M.rust, Vector3(-17, 0, 0)))
+	for sy in [-1.0, 1.0]:
+		hull.add_child(mesh(geo("ttS", func(): return Geo.box(36, 3, 23)), M.hazard, Vector3(0, sy * 24, 0)))
+		var stack := mesh(geo("ttK", func(): return Geo.cyl(3, 3.6, 16, 6)), M.steel, Vector3(8, sy * 30, -6))
+		hull.add_child(stack)
+	g.add_child(hull)
+	u.hull = hull
+	var furnace := Node3D.new()
+	furnace.add_child(mesh(geo("ttC", func(): return Geo.ico(7, 1)), M.hot))
+	g.add_child(furnace)
+	u.core = furnace
+	var lid := geo("ttL", func(): return Geo.box(4, 9, 16))
+	u.lidT = mesh(lid, M.steel)
+	u.lidB = mesh(lid, M.steel)
+	g.add_child(u.lidT)
+	g.add_child(u.lidB)
+	for k in ["top", "bot"]:
+		var c := Node3D.new()
+		c.add_child(mesh(geo("ttG", func(): return Geo.ico(6, 0)), M.rust))
+		var piv := Node3D.new()
+		c.add_child(piv)
+		piv.add_child(mesh(geo("ttGb", func(): return Geo.box(12, 2.6, 2.6)), M.steel, Vector3(-6, 0, 0)))
+		c.set_meta("piv", piv)
+		g.add_child(c)
+		u[k] = c
+	g.set_meta("u", u)
+	world.add_child(g)
+	return g
+
+
+static func boss_heart(world: Node3D) -> Node3D:
+	var g := Node3D.new()
+	var u := {}
+	var core := Node3D.new()
+	core.add_child(mesh(geo("shC", func(): return Geo.ico(12, 1)), M.corona))
+	var sp := geo("shS", func(): return Geo.xf(Geo.cone(2.6, 8, 4), Geo.move(0, 15, 0)))
+	var spikes := Node3D.new()
+	for i in 10:
+		var s := mesh(sp, M.lava)
+		s.rotation.z = i * TAU / 10.0
+		spikes.add_child(s)
+	core.add_child(spikes)
+	var shell := mesh(geo("shH", func(): return Geo.dodeca(14.5)), M.ash)
+	core.add_child(shell)
+	g.add_child(core)
+	u.core = core
+	u.spikes = spikes
+	u.shell = shell
+	u.nodes = []
+	for i in 8:
+		var n := Node3D.new()
+		n.add_child(mesh(geo("shN", func(): return Geo.dodeca(4.4)), M.gold))
+		n.add_child(mesh(geo("shNe", func(): return Geo.ico(1.6, 0)), M.eye, Vector3(-3, 0, 2.5)))
+		g.add_child(n)
+		u.nodes.append(n)
 	g.set_meta("u", u)
 	world.add_child(g)
 	return g

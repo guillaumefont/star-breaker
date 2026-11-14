@@ -1,7 +1,8 @@
 class_name Sfx
 extends Node
-## Procedural chiptune audio: every sound effect and both songs are synthesised at
-## start-up into AudioStreamWAV buffers, so the project ships with no audio files.
+## Procedural chiptune audio: every sound effect and every song (one per world, the boss
+## themes and the ending) is synthesised at start-up into AudioStreamWAV buffers, so the
+## project ships with no audio files. Songs build in the order listed, earliest needed first.
 
 const RATE := 22050
 const MASTER := 0.8
@@ -21,6 +22,16 @@ const SONGS := {
 		lead = [69, 0, 72, 74, 76, 0, 74, 72, 74, 0, 71, 0, 67, 69, 71, 0, 72, 0, 76, 79, 81, 0, 79, 76, 77, 0, 76, 74, 76, 0, 0, 0]},
 	boss = {step = 0.11, bass = [45, 45, 46, 45, 45, 45, 48, 46, 45, 45, 46, 45, 52, 51, 50, 48],
 		lead = [69, 70, 69, 0, 72, 0, 69, 0, 75, 74, 72, 0, 70, 0, 69, 0]},
+	frost = {step = 0.15, bass = [40, 0, 47, 0, 43, 0, 47, 0, 38, 0, 45, 0, 36, 0, 43, 0],
+		lead = [76, 0, 79, 0, 83, 0, 81, 79, 76, 0, 74, 0, 71, 0, 74, 76, 79, 0, 81, 0, 83, 86, 83, 81, 79, 0, 76, 0, 74, 0, 0, 0]},
+	foundry = {step = 0.12, bass = [38, 38, 50, 38, 38, 50, 41, 43, 38, 38, 50, 38, 36, 48, 40, 41],
+		lead = [62, 0, 65, 0, 69, 0, 65, 0, 62, 0, 60, 0, 57, 0, 60, 0, 62, 0, 65, 0, 69, 72, 70, 69, 67, 0, 65, 0, 64, 0, 0, 0]},
+	core = {step = 0.13, bass = [45, 45, 46, 45, 45, 45, 48, 46, 45, 45, 46, 45, 43, 43, 44, 46],
+		lead = [69, 0, 70, 72, 74, 0, 72, 70, 69, 0, 65, 0, 67, 0, 69, 0, 74, 0, 76, 77, 79, 0, 77, 76, 74, 0, 72, 0, 70, 0, 69, 0]},
+	final = {step = 0.1, bass = [45, 45, 57, 45, 46, 46, 58, 46, 48, 48, 60, 48, 44, 44, 56, 44],
+		lead = [81, 0, 80, 0, 81, 0, 84, 0, 83, 0, 81, 0, 80, 0, 77, 0, 76, 0, 77, 0, 80, 0, 81, 0, 83, 84, 83, 81, 80, 0, 76, 0]},
+	ending = {step = 0.2, bass = [48, 0, 55, 0, 53, 0, 55, 0, 45, 0, 52, 0, 50, 0, 55, 0],
+		lead = [72, 0, 76, 79, 84, 0, 83, 79, 81, 0, 77, 0, 79, 0, 0, 0, 76, 0, 79, 84, 88, 0, 86, 84, 83, 0, 79, 0, 84, 0, 0, 0]},
 }
 
 
@@ -103,12 +114,16 @@ func play(name: String, arg := 0) -> void:
 
 
 func music(name: String) -> void:
-	_want_song = name
 	var s: AudioStream = _songs.get(name)
-	if name == "" or s == null:
-		_music.stop()
+	if name == _want_song and s != null and _music.playing and _music.stream == s:
 		return
-	Diag.once("music " + name)
+	_want_song = name
+	# always stop before swapping streams (one stream change per switch, no overlap)
+	_music.stop()
+	_music.stream_paused = false
+	if name == "" or s == null:
+		return
+	Diag.note("MUSIC", name)
 	_music.stream = s
 	_music.play()
 

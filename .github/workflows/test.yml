@@ -18,8 +18,10 @@ jobs:
           mv Godot_v4.7.2-stable_linux.x86_64 godot
       - name: Import project
         run: ./godot --headless --path . --import
-      - name: Full run (stage, pod, charge beam, Bloom Mother, loop, game over)
+      - name: World 1 run (stage, pod, charge beam, gates, Bloom Mother, world 2, continue)
         run: ./godot --headless --path . --script tests/play_test.gd
+      - name: Campaign (worlds 2-4, tunnels, gates, walls, bosses, ending)
+        run: ./godot --headless --path . --script tests/campaign_test.gd
       - name: Songs build on the main thread (Android start-up crash)
         run: ./godot --headless --path . --script tests/audio_test.gd
       - name: Touch zones and floating stick

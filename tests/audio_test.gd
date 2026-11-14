@@ -26,9 +26,13 @@ func _initialize() -> void:
 		await process_frame
 		worst = maxi(worst, Time.get_ticks_usec() - t0)
 		frames += 1
-	check(sfx.songs_ready(), "both songs finish building (%d frames)" % frames)
+	check(sfx.songs_ready(), "all songs finish building (%d frames)" % frames)
 	check(worst < 60000, "no frame stalls on synthesis (worst %d us)" % worst)
-	check(sfx._songs.has("stage") and sfx._songs.has("boss"), "stage and boss songs exist")
+	check(Sfx.SONGS.keys().all(func(k): return sfx._songs.has(k)), "every song exists: %s" % ", ".join(sfx._songs.keys()))
+	sfx.music("frost")
+	sfx.music("frost")
+	check(sfx._music.playing and sfx._music.stream == sfx._songs.frost, "switching worlds swaps the song once")
+	sfx.music("stage")
 	check(sfx._songs.values().all(func(s): return s.loop_mode == AudioStreamWAV.LOOP_DISABLED), "songs are not looping streams (Android crash at the loop point)")
 	sfx._music.finished.emit()
 	check(sfx._music.playing and sfx._music.stream == sfx._songs.get("stage"), "the song restarts itself when it ends")

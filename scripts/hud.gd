@@ -5,6 +5,7 @@ extends Control
 signal start_pressed
 signal mute_pressed
 signal safe_toggled
+signal title_pressed
 
 const C_TEXT := Color("f4f2ff")
 const C_MUTED := Color("bdb6e0")
@@ -54,6 +55,15 @@ var _crash: PanelContainer
 var _crash_txt: Label
 var _crash_report := ""
 var _btn_gfx: Button
+var _boss_name: Label
+var _fade: ColorRect
+var _fade_tw: Tween
+var _over_cta: Button
+var _over_note: Label
+var _over_title: Button
+var end_scr: Control
+var _end_score: Label
+var _end_best: Label
 
 
 func _ready() -> void:
@@ -74,8 +84,18 @@ func _ready() -> void:
 	title_scr = _build_title()
 	over_scr = _build_over()
 	pause_scr = _build_pause()
+	end_scr = _build_end()
 	over_scr.hide()
 	pause_scr.hide()
+	end_scr.hide()
+	# black curtain for the cut between worlds (on top of everything, never takes input)
+	_fade = ColorRect.new()
+	_fade.color = Color(0.02, 0.01, 0.06, 1.0)
+	_fade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_fade.modulate.a = 0.0
+	_fade.hide()
+	add_child(_fade)
 	set_touch_mode(OS.has_feature("mobile") or OS.has_feature("web_android") or OS.has_feature("web_ios"))
 
 
@@ -418,6 +438,7 @@ func _build_hud() -> void:
 	var bn := _caps("Bloom Mother", 11, Color("ff8cc6"))
 	bn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	br.add_child(bn)
+	_boss_name = bn
 	_boss_pct = _caps("100%", 11, Color("ff8cc6"))
 	br.add_child(_boss_pct)
 	var bb := _bar(C_SPORE, C_AMBER, 8)
@@ -519,7 +540,7 @@ func _build_title() -> Control:
 	var v := _center_col(m, 16)
 	var logo := _vbox(0)
 	v.add_child(logo)
-	var sub := _label("STAGE 1 · THE HOLLOW MOON", 21, 700, C_TEXT, 8.0)
+	var sub := _label("FOUR WORLDS · ONE STAR", 21, 700, C_TEXT, 8.0)
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	logo.add_child(sub)
 	var star := _label("STAR", 84, 800)
@@ -530,7 +551,7 @@ func _build_title() -> Control:
 	var st := _stack(_halo("BREAKER", 84, 800, C_VIOLET), brk)
 	st.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	logo.add_child(st)
-	var tag := _label("The moon is blooming. Cut it back.", 17, 500, C_MUTED)
+	var tag := _label("Break through moon, ice and iron to the heart of a dying star.", 17, 500, C_MUTED)
 	tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(tag)
 	v.add_child(_cta("Play"))
@@ -651,7 +672,40 @@ func _build_over() -> Control:
 	var b := _stat("Best")
 	row.add_child(b[0])
 	_over_best = b[1]
-	v.add_child(_cta("Play again"))
+	_over_cta = _cta("Play again")
+	v.add_child(_over_cta)
+	_over_note = _caps("Continuing starts the world again with the score reset", 11)
+	_over_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(_over_note)
+	_over_title = _small_button("Title")
+	_over_title.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_over_title.pressed.connect(func(): title_pressed.emit())
+	v.add_child(_over_title)
+	return m
+
+
+func _build_end() -> Control:
+	var m := _menu_bg(self)
+	var v := _center_col(m, 18)
+	var cap := _label("ALL FOUR WORLDS CLEARED", 18, 700, C_AMBER, 6.0)
+	cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(cap)
+	var h := _grad_label("STAR BROKEN", 72, 800, 0, [C_AMBER, C_SPORE, C_VIOLET])
+	var st := _stack(_halo("STAR BROKEN", 72, 800, C_AMBER), h)
+	st.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	v.add_child(st)
+	var t := _label("The heart has gone dark. Moon, ice and iron fall quiet behind you.", 17, 500, C_MUTED)
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(t)
+	var row := _hbox(10)
+	v.add_child(row)
+	var a := _stat("Final score")
+	row.add_child(a[0])
+	_end_score = a[1]
+	var b := _stat("Best")
+	row.add_child(b[0])
+	_end_best = b[1]
+	v.add_child(_cta("Back to title"))
 	return m
 
 
@@ -685,7 +739,8 @@ func set_menu(which: String) -> void:
 	title_scr.visible = which == "title"
 	over_scr.visible = which == "over"
 	pause_scr.visible = which == "pause"
-	_hud.modulate.a = 0.0 if which == "title" or which == "over" else 1.0
+	end_scr.visible = which == "end"
+	_hud.modulate.a = 0.0 if which == "title" or which == "over" or which == "end" else 1.0
 	if which == "pause":
 		_hud.modulate.a = 0.0
 
@@ -721,8 +776,10 @@ func set_hi(hi: String) -> void:
 	set_text(_title_hi, "thi", hi)
 
 
-func show_boss(on: bool) -> void:
+func show_boss(on: bool, name := "") -> void:
 	_boss.visible = on
+	if name != "":
+		_boss_name.text = name.to_upper()
 
 
 func set_boss(pct: float) -> void:
@@ -730,9 +787,32 @@ func set_boss(pct: float) -> void:
 	set_text(_boss_pct, "bpct", "%d%%" % ceili(pct))
 
 
-func set_over(score: String, best: String) -> void:
+## `world` is the index of the world the run ended in: past world 1 the main button
+## continues from there.
+func set_over(score: String, best: String, world := 0) -> void:
 	_over_score.text = score
 	_over_best.text = best
+	_over_cta.text = ("Continue · World %d" % (world + 1) if world > 0 else "Play again").to_upper()
+	_over_note.visible = world > 0
+	_over_title.visible = world > 0
+
+
+func set_ending(score: String, best: String) -> void:
+	_end_score.text = score
+	_end_best.text = best
+
+
+## Fades the screen to black (on) or back in (off).
+func fade(on: bool) -> void:
+	if _fade_tw:
+		_fade_tw.kill()
+	if not on and not _fade.visible:
+		return
+	_fade.show()
+	_fade_tw = create_tween()
+	_fade_tw.tween_property(_fade, "modulate:a", 1.0 if on else 0.0, 0.8 if on else 0.6)
+	if not on:
+		_fade_tw.tween_callback(_fade.hide)
 
 
 func set_muted_icon(m: bool) -> void:

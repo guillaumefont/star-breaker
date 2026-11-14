@@ -1,5 +1,6 @@
 extends SceneTree
-## Renders a few screenshots of the game (title, stage, boss) for reviews.
+## Renders screenshots of the game for reviews: title, world 1 (stage, beam, boss), then a
+## tunnel and the boss of every other world, and the ending.
 ## xvfb-run godot --path . --rendering-method gl_compatibility --script tools/screenshots.gd -- OUT_DIR
 
 var main: Node3D
@@ -52,4 +53,32 @@ func _initialize() -> void:
 		main.P.inv = 2
 		await physics_frame
 	await snap("boss")
+	for wi in [1, 2, 3]:
+		main.teardown()
+		main.new_game(wi)
+		main.P.laser = 2
+		var tu: Dictionary = main.wdef.terrain.tunnels[0]
+		# just before the first gate inside the first tunnel
+		var gx: float = tu.b
+		for s in main.script_list:
+			if s.type == "gate" and s.x > tu.a:
+				gx = s.x
+				break
+		main.warp(gx - 300.0)
+		Input.action_press("fire")
+		for i in 330:
+			main.P.inv = 2
+			main.P.y = main.mid_y(main.G.scroll + main.P.x)
+			await physics_frame
+		Input.action_release("fire")
+		await snap("w%d_tunnel" % (wi + 1))
+		main.warp(main.wdef.boss_at - 110.0)
+		for i in 700:
+			main.P.inv = 2
+			await physics_frame
+		await snap("w%d_boss" % (wi + 1))
+	main.ending()
+	for i in 60:
+		await physics_frame
+	await snap("ending")
 	quit()
