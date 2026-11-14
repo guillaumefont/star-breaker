@@ -94,6 +94,17 @@ jobs:
       - name: Import project
         run: $RUNNER_TEMP/godot --headless --path . --import
 
+      # Build id (run number, PR, commit) shown on the title screen and in crash reports,
+      # so a report tells which build it came from.
+      - name: Stamp build id
+        env:
+          PR: ${{ github.event.pull_request.number }}
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          id="b$GITHUB_RUN_NUMBER${PR:+ pr$PR} ${SHA::7}"
+          sed -i "/^config\/name=/a config/version=\"$id\"" project.godot
+          grep -m1 '^config/version' project.godot
+
       # outputs go outside the project folder, so Godot never imports them as assets
       - name: Export Web
         run: |

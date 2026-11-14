@@ -592,6 +592,9 @@ func _build_device_row(m: Control) -> void:
 	)
 	row.add_child(_btn_gfx)
 	_update_gfx()
+	var ver := _label("Build " + str(ProjectSettings.get_setting("application/config/version", "dev")), 11, 500, Color(C_MUTED, 0.6))
+	ver.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	col.add_child(ver)
 
 
 func _small_button(text: String) -> Button:
