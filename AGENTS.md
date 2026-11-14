@@ -65,6 +65,8 @@ Screenshots (needs a display, e.g. `xvfb-run -a`):
   with SUSPEND or QUIT, the title screen shows where it stopped with a "Copy crash report" button,
   and safe graphics turn on (no glow/MSAA). Ask Guillaume for that report instead of guessing. Add `Diag.once()`
   breadcrumbs to new features.
+- No looping `AudioStreamWAV` (`loop_mode`): the Android build crashed when the stage song first
+  hit its loop point. Songs restart from the player's `finished` signal instead.
 - Android uses the Compatibility (OpenGL ES) renderer: on Guillaume's Pixel (PowerVR GPU) the
   Vulkan Mobile renderer hitched each time a new kind of object appeared and then crashed. An
   `override.cfg` renderer switch was ignored there, so it is set in `project.godot`.

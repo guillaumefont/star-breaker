@@ -29,6 +29,9 @@ func _initialize() -> void:
 	check(sfx.songs_ready(), "both songs finish building (%d frames)" % frames)
 	check(worst < 60000, "no frame stalls on synthesis (worst %d us)" % worst)
 	check(sfx._songs.has("stage") and sfx._songs.has("boss"), "stage and boss songs exist")
+	check(sfx._songs.values().all(func(s): return s.loop_mode == AudioStreamWAV.LOOP_DISABLED), "songs are not looping streams (Android crash at the loop point)")
+	sfx._music.finished.emit()
+	check(sfx._music.playing and sfx._music.stream == sfx._songs.get("stage"), "the song restarts itself when it ends")
 	check(sfx._music.stream == sfx._songs.get("stage"), "music asked for early starts once it is ready")
 	for k in ["shot", "rapid", "beam1", "beam3", "boom", "pod", "dock", "alarm", "oneup"]:
 		check(sfx._fx.has(k), "sound effect %s" % k)
