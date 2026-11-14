@@ -80,5 +80,25 @@ func _initialize() -> void:
 		var u: Dictionary = main.G.gates[0].m.get_meta("u")
 		check((u.top_strip as Node3D).transform == (u.top as Node3D).transform and (u.bot_rib as Node3D).transform == (u.bot as Node3D).transform,
 			"gate pillars carry their strips")
+	# no pop-in at the screen edges: at every screen shape, the chunks built cover all of the
+	# deepest plane (the back wall) the camera can see
+	main.new_game(0)
+	var fo1: Dictionary = main.wdef.terrain.forts[0]
+	var depth: float = main.CAM.z - FortDeco.BACK_Z
+	var tv := tan(deg_to_rad(main.camera.fov) / 2.0)
+	for aspect in [4.0 / 3.0, 16.0 / 9.0, 2410.0 / 1080.0, 21.0 / 9.0]:
+		main.xm = maxf(0.0, aspect / (16.0 / 9.0) - 1.0) * main.W / 2.0
+		var hw := tv * maxf(aspect, 16.0 / 9.0) * depth
+		var ok := true
+		var scroll: float = fo1.a
+		while scroll < fo1.a + 400.0:
+			main.update_chunks(scroll)
+			var keys: Array = main.chunks.keys()
+			var left: float = keys.min() * main.CH - scroll - main.W / 2.0
+			var right: float = (keys.max() + 1) * main.CH - scroll - main.W / 2.0
+			ok = ok and left <= -hw and right >= hw
+			scroll += 3.0
+		check(ok, "aspect %.2f: chunks cover the whole visible back wall (%.0f units each side)" % [aspect, hw])
+	main.xm = 0.0
 	print("fortress decoration test: ", "PASS" if fails == 0 else "%d FAIL" % fails)
 	quit(1 if fails else 0)
