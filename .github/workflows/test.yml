@@ -34,3 +34,5 @@ jobs:
         run: ./godot --headless --path . --script tests/update_test.gd
       - name: App icons (project icon, Android launcher layers)
         run: ./godot --headless --path . --script tests/icon_test.gd
+      - name: Fortress decoration (dressing, back wall, corridor kept clear)
+        run: ./godot --headless --path . --script tests/fort_test.gd

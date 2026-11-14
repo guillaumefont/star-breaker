@@ -522,7 +522,7 @@ func build_chunk(c: int) -> Node3D:
 			# fortress plating: alternate panel colours, a strip of lights along the edge
 			grp.add_child(Models.mesh(mesh, Models.M.fort_a if c % 2 else Models.M.fort_b))
 			fort_hs[side] = hs
-			if FortDeco.style > 0:
+			if FortDeco.enabled:
 				continue
 			var sgn := 1.0 if side else -1.0
 			for i in [1, 4, 7]:
@@ -559,7 +559,7 @@ func build_chunk(c: int) -> Node3D:
 	if not any:
 		grp.free()
 		return null
-	if FortDeco.style > 0 and fort_hs[0] != null and fort_hs[1] != null:
+	if FortDeco.enabled and fort_hs[0] != null and fort_hs[1] != null:
 		FortDeco.new().build(grp, c, fort_hs[1], fort_hs[0], wdef)
 	world.add_child(grp)
 	return grp

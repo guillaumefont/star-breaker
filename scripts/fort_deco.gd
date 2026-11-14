@@ -3,14 +3,13 @@ extends RefCounted
 ## Low poly dressing for the fortress sections, built with each terrain chunk: a trim lip,
 ## pipes, panels, vents and lights on the plating, props standing on the corridor floor and
 ## hanging from its ceiling (antennas, domes, tanks, dishes and one themed prop per world), and
-## a backdrop behind the corridor (girders or a back wall, see `style`).
+## a dark back wall with ribs and lit windows behind the corridor (Guillaume's pick, 2026-11-14).
 ## Visual only: nothing here is solid, the plating's front face and everything behind the
 ## play plane stay clear of the corridor. Each chunk's dressing is merged into one mesh per
 ## material, so a chunk adds at most seven draw calls.
 
-## 0 off (plain plating), 1 plating dressing and props, 2 plus girders behind the corridor,
-## 3 plus a back wall with lit windows.
-static var style := 2
+## False draws the plain plating (used by tests and review shots).
+static var enabled := true
 
 const ZF := 11.0  # front face of the plating (see Main.terrain_tris)
 const PH := 126.0
@@ -71,16 +70,12 @@ func build(grp: Node3D, chunk: int, top: Array, bot: Array, w: Dictionary) -> vo
 			e.append(PH / 2.0 - hs[i] if side else -PH / 2.0 + hs[i])
 		_plating(e, sg, side)
 		_props(e, sg, side)
-	if style >= 2:
-		var et := []
-		var eb := []
-		for i in 9:
-			et.append(PH / 2.0 - top[i] + 13.0)
-			eb.append(-PH / 2.0 + bot[i] - 13.0)
-		if style == 2:
-			_girders(et, eb)
-		else:
-			_back_wall(et, eb)
+	var et := []
+	var eb := []
+	for i in 9:
+		et.append(PH / 2.0 - top[i] + 13.0)
+		eb.append(-PH / 2.0 + bot[i] - 13.0)
+	_back_wall(et, eb)
 	var mats := {trim = Models.M.fort_trim, dark = Models.M.fort_dark, light = Models.M.fort_light, win = Models.M.fort_win,
 		back = Models.M.fort_back, acc = Models.M[w.deco_mats[0]], acc2 = Models.M[w.deco_mats[1]]}
 	for k in parts:
@@ -95,16 +90,19 @@ func _plating(e: Array, sg: float, side: int) -> void:
 		var p0 := Vector2(i * 8.0, e[i])
 		var p1 := Vector2(i * 8.0 + 8.0, e[i + 1])
 		var d := p1 - p0
-		var rz := atan2(d.y, d.x)
 		var mid := (p0 + p1) / 2.0
-		var ln := d.length()
 		# trim lip along the corridor edge
-		box("trim", Vector3(mid.x, mid.y + sg * 1.3, fz + 0.9), Vector3(ln + 0.5, 2.6, 2.6), rz)
+		# (a sheared slab offset straight up or down, so ramps never poke into the corridor)
+		var o := Vector2(0, sg * 2.6)
+		var cen := mid + o / 2.0
+		put("trim", Geo.prism([p0 - cen, p1 - cen, p1 + o - cen, p0 + o - cen], 2.6), Transform3D(Basis(), Vector3(cen.x, cen.y, fz + 0.9)))
 		# a pipe a little way into the plating, with brackets
 		bar("dark", Vector3(p0.x, p0.y + sg * 5.2, fz + 1.0), Vector3(p1.x, p1.y + sg * 5.2, fz + 1.0), 0.95)
-		if i % 2 == 0:
+		if i % 2 == 0 and absf(d.y) < 0.01:
 			box("trim", Vector3(p0.x + 1.0, p0.y + sg * 5.2, fz + 1.0), Vector3(1.4, 3.0, 2.8))
 	for i in [1, 4, 7]:
+		if absf(e[i - 1] - e[i]) > 0.01 or absf(e[i + 1] - e[i]) > 0.01:
+			continue
 		box("light", Vector3(i * 8.0, e[i] + sg * 1.3, fz + 2.3), Vector3(3.2, 0.9, 0.4))
 	# panels, vents and one themed panel on flat 16-unit runs
 	for i in [0, 2, 4, 6]:
@@ -214,20 +212,7 @@ func _theme_prop(base: Transform3D) -> void:
 			put("acc", Geo.octa(1.6), base * Transform3D(Basis(), Vector3(0, 2.2, 1.6)))
 
 
-# ---------- backdrop ----------
-
-## Girder columns every 32 units with cross bracing, behind the corridor.
-func _girders(et: Array, eb: Array) -> void:
-	var z := -34.0
-	for i in [0, 4]:
-		var x: float = i * 8.0
-		box("dark", Vector3(x, (et[i] + eb[i]) / 2.0, z), Vector3(3.0, et[i] - eb[i] + 4.0, 2.4))
-		box("trim", Vector3(x, (et[i] + eb[i]) / 2.0, z + 1.4), Vector3(1.0, et[i] - eb[i], 0.6))
-		box("win", Vector3(x, (et[i] + eb[i]) / 2.0, z + 1.8), Vector3(1.4, 1.4, 0.3))
-		var j: int = i + 4
-		bar("dark", Vector3(x + 1.5, eb[i] + 2.0, z - 0.6), Vector3(j * 8.0 - 1.5, et[j] - 2.0, z - 0.6), 0.55, 4)
-		bar("dark", Vector3(x + 1.5, et[i] - 2.0, z - 0.6), Vector3(j * 8.0 - 1.5, eb[j] + 2.0, z - 0.6), 0.55, 4)
-
+# ---------- back wall ----------
 
 ## A dark back wall closing the corridor, with ribs and rows of lit windows.
 func _back_wall(et: Array, eb: Array) -> void:
