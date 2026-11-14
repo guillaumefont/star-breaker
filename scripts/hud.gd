@@ -4,6 +4,7 @@ extends Control
 
 signal start_pressed
 signal mute_pressed
+signal safe_toggled
 
 const C_TEXT := Color("f4f2ff")
 const C_MUTED := Color("bdb6e0")
@@ -48,6 +49,11 @@ var _over_best: Label
 var _key_rows: Array = []
 var _touch_rows: Array = []
 var _cache := {}
+var _small_buttons: Array = []
+var _crash: PanelContainer
+var _crash_txt: Label
+var _crash_report := ""
+var _btn_gfx: Button
 
 
 func _ready() -> void:
@@ -540,7 +546,92 @@ func _build_title() -> Control:
 	tr.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(tr)
 	_touch_rows.append(tr)
+	_build_device_row(m)
 	return m
+
+
+## Bottom of the title screen: graphics mode toggle and, after an unexpected close, what
+## the game was doing when it stopped, with a button to copy the full report.
+func _build_device_row(m: Control) -> void:
+	var col := _vbox(8)
+	col.anchor_left = 0.5
+	col.anchor_right = 0.5
+	col.anchor_top = 1.0
+	col.anchor_bottom = 1.0
+	col.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	col.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	col.offset_bottom = -18
+	m.add_child(col)
+	_crash = _glass(16, Vector2(16, 10))
+	_crash.custom_minimum_size.x = 760
+	_crash.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var cv := _vbox(6)
+	_crash.add_child(cv)
+	cv.add_child(_caps("The game closed unexpectedly last time · safe graphics switched on", 11, C_AMBER))
+	_crash_txt = _label("", 12, 500, C_MUTED)
+	_crash_txt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_crash_txt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	cv.add_child(_crash_txt)
+	_crash.hide()
+	col.add_child(_crash)
+	var row := _hbox(8)
+	col.add_child(row)
+	var copy := _small_button("Copy crash report")
+	copy.pressed.connect(func():
+		DisplayServer.clipboard_set(_crash_report)
+		copy.text = "COPIED"
+	)
+	copy.visible = false
+	_crash.visibility_changed.connect(func(): copy.visible = _crash.visible)
+	row.add_child(copy)
+	_btn_gfx = _small_button("")
+	_btn_gfx.pressed.connect(func():
+		Diag.set_safe(not Diag.safe)
+		_update_gfx()
+		safe_toggled.emit()
+	)
+	row.add_child(_btn_gfx)
+	_update_gfx()
+
+
+func _small_button(text: String) -> Button:
+	var b := Button.new()
+	b.text = text.to_upper()
+	b.focus_mode = Control.FOCUS_NONE
+	b.add_theme_font_override("font", _font(700, 1.5))
+	b.add_theme_font_size_override("font_size", 12)
+	for st in ["normal", "hover", "pressed", "focus"]:
+		var sb := _glass_style(999, Vector2(16, 8))
+		if st == "pressed":
+			sb.bg_color = sb.bg_color.lightened(0.15)
+		b.add_theme_stylebox_override(st, sb)
+	b.add_theme_color_override("font_color", C_TEXT)
+	_small_buttons.append(b)
+	return b
+
+
+func _update_gfx() -> void:
+	_btn_gfx.text = ("Graphics: safe" if Diag.safe else "Graphics: full").to_upper()
+
+
+func show_crash_notice(summary: String, report: String) -> void:
+	_crash_report = report
+	_crash_txt.text = summary
+	_crash.show()
+	_update_gfx()
+
+
+## Keeps the HUD clear of notches and rounded corners on phones.
+func apply_safe_area() -> void:
+	if not OS.has_feature("mobile"):
+		return
+	var win := Vector2(DisplayServer.window_get_size())
+	var sa := Rect2(DisplayServer.get_display_safe_area())
+	if win.x <= 0 or sa.size.x <= 0:
+		return
+	var k := get_viewport_rect().size.x / win.x
+	_hud.offset_left = maxf(0.0, sa.position.x * k)
+	_hud.offset_right = -maxf(0.0, (win.x - sa.end.x) * k)
 
 
 func _build_over() -> Control:
@@ -687,7 +778,7 @@ func show_hints(on: bool) -> void:
 
 ## True when a touch at `p` lands on one of the HUD buttons (so it must not fire the ship).
 func blocks_touch(p: Vector2) -> bool:
-	for b in [_btn_mute, _btn_pause]:
+	for b in [_btn_mute, _btn_pause] + _small_buttons:
 		if b.is_visible_in_tree() and b.get_global_rect().grow(8).has_point(p):
 			return true
 	return false
