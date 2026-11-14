@@ -70,6 +70,7 @@ var pod_m: Node3D
 var ship_glow: MeshInstance3D
 var muzzle_s: MeshInstance3D
 var charge_orb: MeshInstance3D
+var nova_orb: Node3D  ## the pink shell that grows round the orb on the way to the Nova stage
 var stars: Array = []
 var planet: MeshInstance3D
 var far_rocks: Array = []
@@ -299,6 +300,20 @@ func _setup_world() -> void:
 	charge_orb.visible = false
 	charge_orb.add_child(Models.glow("3ff0e0", 2.2))
 	world.add_child(charge_orb)
+	nova_orb = Node3D.new()
+	nova_orb.visible = false
+	var shell := Models.mesh(Models.geo("orb", func(): return Geo.ico(1, 1)), Models.M.nova_orb)
+	nova_orb.add_child(shell)
+	nova_orb.add_child(Models.glow("ff4fa3", 3.0))
+	var shards := Node3D.new()
+	for i in 3:
+		var a := i * TAU / 3.0
+		var sh := Models.mesh(Models.geo("pt", func(): return Geo.tetra(1)), Models.M.nova, Vector3(cos(a), sin(a), 0) * 1.7)
+		sh.scale = Vector3.ONE * 0.32
+		shards.add_child(sh)
+	nova_orb.add_child(shards)
+	nova_orb.set_meta("shards", shards)
+	world.add_child(nova_orb)
 
 
 ## Draws one of everything the game can show (every enemy, bullet, effect, item, the boss
@@ -721,6 +736,7 @@ func teardown() -> void:
 	ship.visible = false
 	pod_m.visible = false
 	charge_orb.visible = false
+	nova_orb.visible = false
 	muzzle_s.visible = false
 	hud.hide_banner()
 	hud.show_hints(false)
@@ -945,30 +961,51 @@ func fire_shot(rapid: bool) -> void:
 	audio.play("rapid" if rapid else "shot")
 
 
+## Ticks (60 per second) the Charge button must be held for each stage. Stage 4, the Nova
+## lance, takes 4 seconds: a real commitment, with a beam that also burns away bullets.
+const CHARGE_AT := [0, 50, 100, 160, 240]
+const CHARGE_MAX := 240
+const NOVA := 4
+
+
 static func charge_lv(c: float) -> int:
-	return 3 if c >= 100 else (2 if c >= 65 else (1 if c >= 35 else 0))
+	for lv in range(NOVA, 0, -1):
+		if c >= CHARGE_AT[lv]:
+			return lv
+	return 0
 
 
 func fire_beam(lv: int) -> void:
-	var len: float = [0.0, 14.0, 22.0, 34.0][lv]
-	var hh: float = [0.0, 1.6, 2.8, 4.6][lv]
-	var b := {x = P.x + 6 + len / 2.0, y = P.y, vx = 5.5, vy = 0.0, hw = len / 2.0, hh = hh, dmg = [0, 4, 9, 18][lv], beam = true, hits = {}, dead = false}
+	var len: float = [0.0, 14.0, 22.0, 34.0, 60.0][lv]
+	var hh: float = [0.0, 1.6, 2.8, 4.6, 7.5][lv]
+	var nova := lv == NOVA
+	var b := {x = P.x + 6 + len / 2.0, y = P.y, vx = 6.5 if nova else 5.5, vy = 0.0, hw = len / 2.0, hh = hh,
+		dmg = [0, 4, 9, 18, 40][lv], beam = true, nova = nova, hits = {}, dead = false}
 	var g := Node3D.new()
-	var c := Models.mesh(Models.geo("bo", func(): return Geo.octa(0.5)), Models.M.beam)
+	var c := Models.mesh(Models.geo("bo", func(): return Geo.octa(0.5)), Models.M.nova if nova else Models.M.beam)
 	c.scale = Vector3(len * 1.3, hh * 1.6, hh * 1.6)
-	var o := Models.mesh(Models.geo("bo", func(): return Geo.octa(0.5)), Models.M.beam_glow)
+	var o := Models.mesh(Models.geo("bo", func(): return Geo.octa(0.5)), Models.M.nova_glow if nova else Models.M.beam_glow)
 	o.scale = Vector3(len * 1.6 + 6, hh * 3, hh * 3)
 	g.add_child(c)
 	g.add_child(o)
-	var gl := Models.glow("3ff0e0", hh * 5.0)
+	if nova:
+		# a cyan sheath round the pink-white core, so the Nova reads as the lance's big sister
+		var sh := Models.mesh(Models.geo("bo", func(): return Geo.octa(0.5)), Models.M.beam_glow)
+		sh.scale = Vector3(len * 1.75 + 10, hh * 4.2, hh * 4.2)
+		g.add_child(sh)
+	var gl := Models.glow("ff4fa3" if nova else "3ff0e0", hh * 5.0)
 	gl.scale = Vector3(len * 1.4, hh * 5.0, 1)
 	g.add_child(gl)
 	b.m = g
 	world.add_child(g)
 	G.pb.append(b)
-	Diag.once("beam")
+	Diag.once("nova" if nova else "beam")
 	audio.play("beam", lv)
-	shake = maxf(shake, lv * 2.0)
+	shake = maxf(shake, 12.0 if nova else lv * 2.0)
+	if nova:
+		muzzle = 12
+		for i in 8:
+			spark(P.x + 8 + randf_range(-3, 3), P.y + randf_range(-6, 6))
 
 
 # ---------- fx ----------
@@ -1720,11 +1757,14 @@ func step() -> void:
 			P.fire_hold = 0
 		var ch := held("charge")
 		if ch:
-			P.charge = mini(100, P.charge + 1)
+			P.charge = mini(CHARGE_MAX, P.charge + 1)
 			var lv := charge_lv(P.charge)
 			if lv > P.ready_lv:
 				P.ready_lv = lv
-				audio.play("ready")
+				audio.play("ready", lv)
+				if lv == NOVA:
+					Diag.once("nova ready")
+					shake = maxf(shake, 3.0)
 		if not ch and P.charge_held:
 			var lv := charge_lv(P.charge)
 			if lv:
@@ -1793,6 +1833,11 @@ func step() -> void:
 			b.dead = true
 			spark(b.x, b.y)
 			continue
+		if b.get("nova", false):
+			for e in G.eb:
+				if not e.dead and ov(b, e):
+					e.dead = true
+					spark(e.x, e.y)
 		for e in G.enemies:
 			if e.dead or not ov(b, e):
 				continue
@@ -2237,7 +2282,18 @@ func _process(_delta: float) -> void:
 			muzzle_s.scale = Vector3(ms, ms, 1)
 		charge_orb.visible = P.alive and P.charge > 14
 		charge_orb.position = Vector3(X(P.x + 9), Y(P.y), 1)
-		charge_orb.scale = Vector3.ONE * (0.8 + P.charge / 100.0 * 3.0) * (1.0 + sin(tt * 0.8) * 0.2 if lv == 3 else 1.0)
+		var co: float = minf(P.charge, CHARGE_AT[3]) / float(CHARGE_AT[3])
+		charge_orb.scale = Vector3.ONE * (0.8 + co * 3.0) * (1.0 + sin(tt * 0.8) * 0.2 if lv >= 3 else 1.0)
+		# past stage 3 a pink shell swells round the orb until the Nova is ready, then throbs
+		nova_orb.visible = charge_orb.visible and lv >= 3
+		if nova_orb.visible:
+			var nk: float = clampf(float(P.charge - CHARGE_AT[3]) / (CHARGE_MAX - CHARGE_AT[3]), 0.0, 1.0)
+			nova_orb.position = charge_orb.position + Vector3(0.8, 0, 0)
+			nova_orb.scale = Vector3.ONE * (1.8 + nk * 2.4) * (1.0 + sin(tt * 1.3) * 0.16 if lv == NOVA else 1.0)
+			var shards: Node3D = nova_orb.get_meta("shards")
+			shards.visible = lv == NOVA
+			if not paused:
+				shards.rotation.z += 0.22
 		pod_m.visible = pod.state != "none"
 		pod_m.position = Vector3(X(pod.x), Y(pod.y), 0)
 		if not paused:
@@ -2262,7 +2318,7 @@ func _process(_delta: float) -> void:
 				(it.m.get_meta("core") as Node3D).rotation.y += 0.05
 		if G.boss:
 			sync_boss()
-		hud.update_hud(fmt(G.score), fmt(hiscore), P.laser + 1, P.speed + 1, G.lives, P.charge, lv)
+		hud.update_hud(fmt(G.score), fmt(hiscore), P.laser + 1, P.speed + 1, G.lives, float(P.charge) / CHARGE_MAX, lv)
 	else:
 		hud.set_hi(fmt(hiscore))
 	var j := Vector3.ZERO

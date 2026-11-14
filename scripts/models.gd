@@ -19,6 +19,7 @@ static func init() -> void:
 		moth = std("d9f46a", "334000", 0.5), shell = std("3d5a66"),
 		eye = basic("ff3355", 1.6), ebullet = basic("ff9a3d", 1.8), shot = basic("9ffcf2", 1.6), heavy = basic("e9fffd", 2.0),
 		pod_shot = basic("ffd27a", 1.6), beam = basic("e6fffc", 2.2), beam_glow = add_mat("4fe3d6", 0.5), charge_orb = add_mat("4fe3d6", 0.85),
+		nova = basic("ffe8f6", 2.6), nova_glow = add_mat("ff4fa3", 0.55), nova_orb = add_mat("ff4fa3", 0.7),
 		rock = std("51458a"), rock2 = std("453b7a"),
 		crystal_c = std("4fe3d6", "4fe3d6", 1.6), crystal_m = std("ff4fa3", "ff4fa3", 1.4),
 		core_skin = std("7a2a6e", "2a0020", 0.6), petal = std("ff6fb5", "ff2f8f", 0.45), iris = std("f3f0ff", "553366", 0.3),

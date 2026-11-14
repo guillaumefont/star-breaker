@@ -110,6 +110,12 @@ the pod model spins on its `spin` child around X, the root only turns it to face
 - `Sfx.music()` always stops the player before swapping songs and logs a `MUSIC` breadcrumb, so
   a crash report shows which song change it died on.
 
+## Charge lance
+
+- Charge stages (2026-11-14): `CHARGE_AT` in `main.gd` holds the ticks for LV 1-3 and the Nova
+  (stage 4, 4 s, `CHARGE_MAX`). The HUD meter notches come from `Hud.CHARGE_TICKS`: keep the
+  two in step. The Nova beam has `nova = true` and burns enemy bullets it overlaps.
+
 ## Gotchas
 
 - Don't run GDScript on worker threads (`WorkerThreadPool`, `Thread`): song synthesis on a

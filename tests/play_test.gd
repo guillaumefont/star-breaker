@@ -57,11 +57,35 @@ func _initialize() -> void:
 	check(main.G.pb.size() >= after_tap + 4 and main.G.pb[-1].dmg == 1, "holding Fire streams rapid shots")
 	Input.action_press("charge")
 	tick(105)
+	check(main.charge_lv(main.P.charge) == 2, "charging is slower: 105 ticks only reach level 2")
+	tick(60)
 	check(main.charge_lv(main.P.charge) == 3, "charge reaches level 3")
 	Input.action_release("charge")
 	tick()
 	var beams: Array = main.G.pb.filter(func(b): return b.beam)
-	check(beams.size() == 1, "releasing charge fires a piercing beam")
+	check(beams.size() == 1 and not beams[0].nova and beams[0].dmg == 18, "releasing charge fires a piercing beam")
+	tick(40)
+
+	# Nova: the extra fourth stage after 4 seconds; a bigger beam that burns enemy bullets away
+	Input.action_press("charge")
+	tick(main.CHARGE_AT[4] - 1)
+	check(main.charge_lv(main.P.charge) == 3, "the Nova stage isn't ready a tick early")
+	tick()
+	check(main.charge_lv(main.P.charge) == 4, "holding 4 seconds reaches the Nova stage")
+	check(main.nova_orb.visible and (main.nova_orb.get_meta("shards") as Node3D).visible, "a pink shell with shards shows the Nova is ready")
+	tick(60)
+	check(main.P.charge == main.CHARGE_MAX, "charge stops at the Nova stage")
+	var n_eb: int = main.G.eb.size()
+	for i in 3:
+		main.bullet(main.P.x + 20 + i * 8, main.P.y, -0.5, 0)
+	var mine: Array = main.G.eb.slice(n_eb)
+	Input.action_release("charge")
+	tick()
+	var novas: Array = main.G.pb.filter(func(b): return b.beam and b.nova)
+	check(novas.size() == 1 and novas[0].dmg > 18 and novas[0].hh > 4.6, "releasing at the Nova stage fires the Nova lance")
+	check(not main.nova_orb.visible, "the Nova shell goes away once fired")
+	tick(8)
+	check(mine.all(func(b): return b.dead), "the Nova lance burns away enemy bullets in its path")
 
 	# pod
 	main.drop_item(main.P.x + 4, main.P.y, "P")
@@ -86,10 +110,12 @@ func _initialize() -> void:
 	check(main.pod.state == "return", "pod is recalled")
 	tick(90)
 	check(main.pod.state == "front" or main.pod.state == "back", "pod docks again")
+	main.P.laser = 0
+	main.P.speed = 0
 	main.drop_item(main.P.x + 4, main.P.y, "L")
 	main.drop_item(main.P.x + 4, main.P.y, "S")
 	tick(2)
-	check(main.P.laser == 1 and main.P.speed == 1, "L and S items upgrade laser and speed")
+	check(main.P.laser == 1 and main.P.speed == 1, "L and S items upgrade laser and speed (%d, %d)" % [main.P.laser, main.P.speed])
 
 	# fly the whole stage with rapid fire and a weaving ship
 	var seen := {}
