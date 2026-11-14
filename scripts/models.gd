@@ -204,45 +204,26 @@ static func _mirror_z(tris: Array) -> Array:
 	return Geo.xf(tris, Transform3D(Basis().scaled(Vector3(1, 1, -1)), Vector3.ZERO))
 
 
-## Pod: a round energy shield. Faceted armour plates with gaps float over a glowing core,
-## so the light shows through the seams (all opaque: no see-through materials). Two dark
-## hubs mark its axle, which runs nose to tail. The "spin" child turns around that axle;
+## Pod: a long cyan crystal with a glowing band around its middle and four pink shards
+## orbiting it. All opaque. The "spin" child turns around the axle (X, nose to tail);
 ## the root only flips to face backwards when the pod docks behind the ship.
 static func pod() -> Node3D:
 	var g := Node3D.new()
 	var spin := Node3D.new()
 	g.add_child(spin)
-	spin.add_child(mesh(geo("podCore", func(): return Geo.ico(2.7, 1)), M.pod_shot))
-	spin.add_child(mesh(Geo.cached("podShell", func(): return Geo.build_wound(_plates(Geo.ico(3.5, 1), 0.74, 0.8))), M.pod))
-	var hub := geo("podH", func(): return Geo.xf(Geo.cyl(0.9, 1.3, 0.8, 6), Geo.rot(Vector3.BACK, -PI / 2)))
-	for side in [1.0, -1.0]:
-		var h := mesh(hub, M.hull_dark, Vector3(3.3 * side, 0, 0))
-		h.rotation.z = 0.0 if side > 0 else PI
-		spin.add_child(h)
+	var c := mesh(geo("podX", func(): return Geo.octa(2.2)), M.crystal_c)
+	c.scale = Vector3(1.7, 1, 1)
+	spin.add_child(c)
+	var band := mesh(Geo.cached("podR", func(): return Geo.build_wound(Geo.xf(Geo.torus(2.3, 0.18, 12, 3), Geo.rot(Vector3.UP, PI / 2)))), M.shot)
+	band.set_meta("nf", true)
+	spin.add_child(band)
+	var shard := geo("podS", func(): return Geo.xf(Geo.octa(1.0), Transform3D(Basis().scaled(Vector3(1.8, 0.7, 0.7)), Vector3(-0.4, 3.1, 0))))
+	for i in 4:
+		var arm := mesh(shard, M.crystal_m)
+		arm.rotation.x = i * TAU / 4.0 + 0.4
+		spin.add_child(arm)
 	g.set_meta("spin", spin)
 	return g
-
-
-## Turns each face of a closed shape into a separate thick plate: shrunk by `gap` around
-## its own centre and given a back face at `depth` of its distance from the origin.
-static func _plates(tris: Array, gap: float, depth: float) -> Array:
-	var out := []
-	for t in tris:
-		var c: Vector3 = (t[0] + t[1] + t[2]) / 3.0
-		var o := []
-		var i := []
-		for v in t:
-			var p: Vector3 = c + ((v as Vector3) - c) * gap
-			o.append(p)
-			i.append(p * depth)
-		var mid := (c + c * depth) * 0.5
-		out.append(Geo.orient([o[0], o[1], o[2]], mid))
-		out.append(Geo.orient([i[0], i[1], i[2]], mid))
-		for k in 3:
-			var n := (k + 1) % 3
-			out.append(Geo.orient([o[k], i[k], i[n]], mid))
-			out.append(Geo.orient([o[k], i[n], o[n]], mid))
-	return out
 
 
 static func drifter() -> Node3D:
