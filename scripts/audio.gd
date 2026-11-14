@@ -34,6 +34,10 @@ func _ready() -> void:
 	_music = AudioStreamPlayer.new()
 	_music.volume_db = -3.0
 	add_child(_music)
+	# Songs are not looping streams: the on-device crash report showed the Android build
+	# dying right when the stage song first reached its loop point (4.5 s after it started).
+	# The player restarts the song itself when it ends.
+	_music.finished.connect(_on_music_end)
 	_build_fx()
 	for name in SONGS:
 		var s: Dictionary = SONGS[name]
@@ -64,11 +68,17 @@ func _process(_delta: float) -> void:
 			_tone(j.buf, "triangle", _midi(lead[i % lead.size()]), 0, step * 1.7, 0.05, t, true)
 		j.i = i + 1
 		if j.i >= j.steps:
-			_songs[j.name] = _wav(j.buf, true)
+			_songs[j.name] = _wav(j.buf)
 			Diag.note("SONG", "%s built" % j.name)
 			_jobs.pop_front()
 			if _want_song == j.name and not _music.playing:
 				music(_want_song)
+
+
+func _on_music_end() -> void:
+	if _want_song != "" and _music.stream == _songs.get(_want_song):
+		Diag.once("music restart " + _want_song)
+		_music.play()
 
 
 func songs_ready() -> bool:
@@ -154,7 +164,8 @@ static func _noise(buf: PackedFloat32Array, dur: float, vol: float, freq: float)
 		buf[i] += y * vol * 1.6 * pow(0.0001 / vol, t)
 
 
-static func _wav(buf: PackedFloat32Array, loop := false) -> AudioStreamWAV:
+## Never set a loop mode here (see _ready).
+static func _wav(buf: PackedFloat32Array) -> AudioStreamWAV:
 	var data := PackedByteArray()
 	data.resize(buf.size() * 2)
 	for i in buf.size():
@@ -164,10 +175,6 @@ static func _wav(buf: PackedFloat32Array, loop := false) -> AudioStreamWAV:
 	w.mix_rate = RATE
 	w.stereo = false
 	w.data = data
-	if loop:
-		w.loop_mode = AudioStreamWAV.LOOP_FORWARD
-		w.loop_begin = 0
-		w.loop_end = buf.size()
 	return w
 
 
