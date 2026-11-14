@@ -62,9 +62,10 @@ the pod model spins on its `spin` child around X, the root only turns it to face
 
 ## App icon
 
-- Icon (Guillaume, 2026-11-14): same family as his Tether Rally and Aurite Front icons, a round
-  cream-rimmed medal with a dark inside on a dusk scene (light beams from the top, planet rim and
-  low poly ridges, sparks). Here the gunship flies out of the medal with its crystal pod.
+- Icon (Guillaume, 2026-11-14, option A of four): the gunship and its crystal pod flying over a
+  dusk scene, no frame. The family trait shared with his Tether Rally and Aurite Front icons is
+  one bold subject on a dusk scene (light beams from the top, ridged horizon, sparks), not a
+  round medal: he rejected the ring frame.
 - One source, `tools/icon.py` (Pillow): `python3 tools/icon.py` rewrites `icon.png` (project
   icon and web favicon), `icons/` (launcher icon and the adaptive background, foreground and
   monochrome layers) and `store/icon-512.png`. Commit the PNGs; CI doesn't run it.
