@@ -16,6 +16,7 @@ const C_LANCE := Color("3ff0e0")
 const C_AMBER := Color("ffb547")
 const C_LIME := Color("c8f560")
 const C_VIOLET := Color("8c7bff")
+const CHARGE_TICKS := [50 / 240.0, 100 / 240.0, 160 / 240.0]
 
 var fonts := {}
 var touch: TouchPad
@@ -470,7 +471,8 @@ func _build_hud() -> void:
 	cr.add_child(cn)
 	_charge_lv = _caps("")
 	cr.add_child(_charge_lv)
-	var cb := _bar(C_VIOLET, C_LANCE, 7, [0.35, 0.65])
+	# a notch at each charge stage (Main.CHARGE_AT over Main.CHARGE_MAX: LV 1, 2, 3, then Nova at the end)
+	var cb := _bar(C_VIOLET, C_LANCE, 7, CHARGE_TICKS)
 	cv.add_child(cb[0])
 	_charge_fill = cb[1]
 
@@ -881,11 +883,14 @@ func update_hud(score: String, hi: String, laser: int, speed: int, n_lives: int,
 		_lives_txt.text = "×%d" % lives if lives > 4 else ("Last ship" if lives == 0 else "")
 		_lives_txt.visible = _lives_txt.text != ""
 		_lives_icon.queue_redraw()
-	(_charge_fill.material as ShaderMaterial).set_shader_parameter("fill", charge / 100.0)
-	var full := lv == 3
-	(_charge_fill.material as ShaderMaterial).set_shader_parameter("col_a", C_LANCE if full else C_VIOLET)
-	(_charge_fill.material as ShaderMaterial).set_shader_parameter("col_b", Color.WHITE if full else C_LANCE)
-	set_text(_charge_lv, "clv", "LV %d" % lv if lv else "")
+	# charge is 0..1 of the way to the Nova stage; violet to cyan, cyan to white at LV 3,
+	# then pink to white once the Nova (stage 4) is ready
+	var fm := _charge_fill.material as ShaderMaterial
+	fm.set_shader_parameter("fill", charge)
+	fm.set_shader_parameter("col_a", C_SPORE if lv >= 4 else (C_LANCE if lv == 3 else C_VIOLET))
+	fm.set_shader_parameter("col_b", Color.WHITE if lv >= 3 else C_LANCE)
+	set_text(_charge_lv, "clv", "NOVA" if lv >= 4 else ("LV %d" % lv if lv else ""))
+	_charge_lv.modulate = Color(C_SPORE * 1.3, 1.0) if lv >= 4 else Color.WHITE
 	set_hi(hi)
 
 

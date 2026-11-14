@@ -37,11 +37,11 @@ func _initialize() -> void:
 	sfx._music.finished.emit()
 	check(sfx._music.playing and sfx._music.stream == sfx._songs.get("stage"), "the song restarts itself when it ends")
 	check(sfx._music.stream == sfx._songs.get("stage"), "music asked for early starts once it is ready")
-	for k in ["shot", "rapid", "beam1", "beam3", "boom", "pod", "dock", "alarm", "oneup"]:
+	for k in ["shot", "rapid", "beam1", "beam3", "beam4", "ready1", "ready4", "boom", "pod", "dock", "alarm", "oneup"]:
 		check(sfx._fx.has(k), "sound effect %s" % k)
 	# a burst far larger than the pool (rapid fire + hits + explosions) must just recycle players
 	for i in 200:
-		sfx.play(["shot", "rapid", "hit", "small", "boom", "beam"][i % 6], 1 + i % 3)
+		sfx.play(["shot", "rapid", "hit", "small", "boom", "beam"][i % 6], 1 + i % 4)
 		if i % 10 == 0:
 			await process_frame
 	check(sfx._pool.size() == Sfx.POOL and sfx.get_child_count() == Sfx.POOL + 1, "a burst of 200 sounds reuses the fixed player pool")

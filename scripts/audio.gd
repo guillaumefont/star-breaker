@@ -97,7 +97,7 @@ func songs_ready() -> bool:
 
 
 func play(name: String, arg := 0) -> void:
-	var key := name + (str(arg) if name == "beam" else "")
+	var key := name + (str(arg) if name == "beam" or name == "ready" else "")
 	if not _fx.has(key):
 		return
 	# take a free player, else the one that started longest ago
@@ -205,6 +205,9 @@ func _build_fx() -> void:
 	b = _buf(0.04); _tone(b, "square", 1800, 900, 0.035, 0.018); _fx.rapid = _wav(b)
 	for l in [1, 2, 3]:
 		b = _buf(0.6); _tone(b, "sawtooth", 1000, 80, 0.25 + 0.1 * l, 0.07); _noise(b, 0.2, 0.06, 4000); _fx["beam" + str(l)] = _wav(b)
+	# the Nova lance: a long falling roar over a sub drop and a crackle tail
+	b = _buf(1.3); _tone(b, "sawtooth", 1500, 40, 1.1, 0.08); _tone(b, "square", 220, 30, 1.2, 0.05); _noise(b, 0.9, 0.1, 2500)
+	_fx.beam4 = _wav(b)
 	b = _buf(0.5); _noise(b, 0.5, 0.22, 900); _fx.boom = _wav(b)
 	b = _buf(0.18); _noise(b, 0.18, 0.12, 2000); _fx.small = _wav(b)
 	b = _buf(0.04); _tone(b, "square", 320, 160, 0.03, 0.025); _fx.hit = _wav(b)
@@ -214,7 +217,13 @@ func _build_fx() -> void:
 		_tone(b, "square", [660, 880, 1320][i], 0, 0.07, 0.045, i * 0.06)
 	_fx.pick = _wav(b)
 	b = _buf(0.9); _noise(b, 0.9, 0.28, 700); _tone(b, "square", 600, 50, 0.8, 0.06); _fx.die = _wav(b)
-	b = _buf(0.06); _tone(b, "square", 1760, 0, 0.05, 0.03); _fx.ready = _wav(b)
+	# a blip per charge stage, higher each time; the Nova stage rings a rising chord
+	for l in [1, 2, 3]:
+		b = _buf(0.06); _tone(b, "square", [1320, 1560, 1760][l - 1], 0, 0.05, 0.03); _fx["ready" + str(l)] = _wav(b)
+	b = _buf(0.34)
+	for i in 4:
+		_tone(b, "triangle", [880, 1109, 1319, 1760][i], 0, 0.16, 0.05, i * 0.05)
+	_fx.ready4 = _wav(b)
 	b = _buf(1.15)
 	for i in 4:
 		_tone(b, "square", 880, 440, 0.2, 0.045, i * 0.3)
