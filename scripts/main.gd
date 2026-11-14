@@ -252,7 +252,7 @@ func _setup_world() -> void:
 	ship_glow = Models.glow("ff9a40", 9)
 	ship_glow.position = Vector3(-9, 0, 0)
 	ship.add_child(ship_glow)
-	pod_m.add_child(Models.glow("ffb547", 10))
+	pod_m.add_child(Models.glow("3ff0e0", 9))
 	muzzle_s = Models.glow("3ff0e0", 5)
 	muzzle_s.visible = false
 	world.add_child(muzzle_s)

@@ -305,6 +305,29 @@ static func _sph(r: float, phi: float, theta: float) -> Vector3:
 	return Vector3(-r * cos(phi) * sin(theta), r * cos(theta), r * sin(phi) * sin(theta))
 
 
+## Ring tube around the Z axis (ring radius `R`, tube radius `r`).
+static func torus(R: float, r: float, seg: int, side: int) -> Array:
+	var tris := []
+	for i in seg:
+		var a0 := float(i) / seg * TAU
+		var a1 := float(i + 1) / seg * TAU
+		var cm := Vector3(cos((a0 + a1) * 0.5), sin((a0 + a1) * 0.5), 0) * R
+		for j in side:
+			var b0 := float(j) / side * TAU
+			var b1 := float(j + 1) / side * TAU
+			var q00 := _tor(R, r, a0, b0)
+			var q10 := _tor(R, r, a1, b0)
+			var q11 := _tor(R, r, a1, b1)
+			var q01 := _tor(R, r, a0, b1)
+			tris.append(orient([q00, q10, q11], cm))
+			tris.append(orient([q00, q11, q01], cm))
+	return tris
+
+
+static func _tor(R: float, r: float, a: float, b: float) -> Vector3:
+	return Vector3(cos(a), sin(a), 0) * (R + r * cos(b)) + Vector3(0, 0, r * sin(b))
+
+
 ## Flat ring in the XY plane.
 static func ring(ri: float, ro: float, seg: int) -> Array:
 	var tris := []
