@@ -9,8 +9,6 @@ extends RefCounted
 const PATH := "user://diag.log"
 const PREV := "user://diag_prev.log"
 const SETTINGS := "user://settings.cfg"
-## Read by the engine at start-up (application/config/project_settings_override).
-const OVERRIDE := "user://override.cfg"
 
 static var crashed := false
 static var prev_lines := PackedStringArray()
@@ -57,20 +55,16 @@ static func once(key: String, msg := "") -> void:
 	note("FIRST", key + (" " + msg if msg != "" else ""))
 
 
-## Safe graphics: no bloom or MSAA now, and the Compatibility (OpenGL) renderer from the
-## next launch on.
+## Safe graphics: no bloom or MSAA. (Android always uses the Compatibility/OpenGL renderer:
+## an override.cfg switch from Vulkan was ignored on a Pixel.)
 static func set_safe(on: bool) -> void:
 	safe = on
 	var cfg := ConfigFile.new()
 	cfg.load(SETTINGS)
 	cfg.set_value("graphics", "safe", on)
 	cfg.save(SETTINGS)
-	if on:
-		var f := FileAccess.open(OVERRIDE, FileAccess.WRITE)
-		if f:
-			f.store_string('[rendering]\n\nrenderer/rendering_method="gl_compatibility"\nrenderer/rendering_method.mobile="gl_compatibility"\n')
-	elif FileAccess.file_exists(OVERRIDE):
-		DirAccess.remove_absolute(OVERRIDE)
+	if FileAccess.file_exists("user://override.cfg"):
+		DirAccess.remove_absolute("user://override.cfg")
 
 
 ## Text to paste back to the developer: the previous session's log (last 60 lines).

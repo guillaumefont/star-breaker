@@ -567,7 +567,7 @@ func _build_device_row(m: Control) -> void:
 	_crash.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	var cv := _vbox(6)
 	_crash.add_child(cv)
-	cv.add_child(_caps("The game closed unexpectedly last time · safe graphics switched on", 11, C_AMBER))
+	cv.add_child(_caps("The game closed unexpectedly last time · safe graphics switched on, tap Play to try again", 11, C_AMBER))
 	_crash_txt = _label("", 12, 500, C_MUTED)
 	_crash_txt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_crash_txt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

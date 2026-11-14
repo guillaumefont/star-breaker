@@ -140,6 +140,7 @@ func _ready() -> void:
 	hud.set_menu("title")
 	if Diag.crashed:
 		hud.show_crash_notice(Diag.summary(), Diag.report())
+	_warm_up()
 	get_viewport().size_changed.connect(_on_resize)
 	_on_resize()
 	apply_safe()
@@ -259,6 +260,42 @@ func _setup_world() -> void:
 	charge_orb.visible = false
 	charge_orb.add_child(Models.glow("3ff0e0", 2.2))
 	world.add_child(charge_orb)
+
+
+## Draws one of everything the game can show (every enemy, bullet, effect, item, the boss
+## and the hit flash) for a few frames behind the title screen, so the GPU builds all its
+## pipelines up front. Otherwise each new kind of object causes a hitch the first time it
+## appears in a run, and the crash report from a Pixel (PowerVR GPU) showed the game dying
+## right after such hitches.
+func _warm_up() -> void:
+	var w := Node3D.new()
+	w.position = Vector3(0, -9, 60)
+	w.scale = Vector3.ONE * 0.02
+	add_child(w)
+	var flashed := Models.drifter()
+	var list: Array = [Models.drifter(), Models.turret(1), Models.turret(-1), Models.hopper(), Models.shell(), flashed]
+	for k in ["P", "L", "S"]:
+		list.append(Models.carrier(k))
+		list.append(Models.item(k))
+	for k in Models.M:
+		var mat = Models.M[k]
+		if mat is Material:
+			list.append(Models.mesh(Models.geo("pt", func(): return Geo.tetra(1)), mat))
+			list.append(Models.mesh(Models.geo("bo", func(): return Geo.octa(0.5)), mat))
+	for c in ["ffb547", "3ff0e0", "fff1d0", "ff4fa3", "ff9a40"]:
+		list.append(Models.glow(c, 5))
+	list.append(Models.mesh(Models.geo("fl", func(): return Geo.ico(1, 1)), Models.add_mat("fff1c9", 1.0)))
+	for n in list:
+		w.add_child(n)
+	Models.set_flash(flashed, true)
+	var bw := Node3D.new()
+	w.add_child(bw)
+	var bm := Models.boss(bw)
+	Models.set_flash(bm, true)
+	for i in 4:
+		await get_tree().process_frame
+	w.queue_free()
+	Diag.note("WARM", "%d objects" % (list.size() + 1))
 
 
 func _add_backdrop() -> void:
