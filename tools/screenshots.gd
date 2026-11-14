@@ -1,5 +1,5 @@
 extends SceneTree
-## Renders screenshots of the game for reviews: title, world 1 (stage, beam, boss), then a
+## Renders screenshots of the game for reviews: title, world 1 (stage at charge LV 3, Nova ready, Nova lance, boss), then a
 ## tunnel and the boss of every other world, and the ending.
 ## xvfb-run godot --path . --rendering-method gl_compatibility --script tools/screenshots.gd -- OUT_DIR
 
@@ -38,16 +38,18 @@ func _initialize() -> void:
 	main.drop_item(main.P.x + 2, main.P.y, "P")
 	main.drop_item(main.P.x + 2, main.P.y, "L")
 	Input.action_press("fire")
-	for i in 260:
+	for i in 400:
 		main.P.inv = 2
 		if i == 150:
 			Input.action_release("fire")
 			Input.action_press("charge")
+		if i == 150 + 170:
+			await snap("stage")  # charged to LV 3
 		await physics_frame
-	await snap("stage")
+	await snap("nova_ready")  # held 4 s: the Nova stage
 	Input.action_release("charge")
 	await run(4)
-	await snap("beam")
+	await snap("beam")  # the Nova lance
 	main.warp(3290)
 	for i in 700:
 		main.P.inv = 2

@@ -34,8 +34,10 @@ There are no visible touch buttons. The right side is one stack, bottom up: Fire
 
 ## Game
 
-- **Weapons:** one Fire button (a tap shoots a heavy shot, holding it streams rapid fire) and a charge beam with three levels that pierces
-  everything in its path.
+- **Weapons:** one Fire button (a tap shoots a heavy shot, holding it streams rapid fire) and a charge beam that pierces
+  everything in its path. Hold Charge to fill the meter through three levels; keep holding
+  for 4 seconds to reach the **Nova** stage, a much bigger pink beam that also burns away
+  enemy bullets.
 - **Pod:** collect a **P** carrier drop to get the pod. It docks to the front or back of the
   ship (whichever side it touches), blocks bullets, rams enemies, and fires with you. Launch it
   across the screen and recall it at will.

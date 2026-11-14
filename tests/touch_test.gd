@@ -87,7 +87,7 @@ func _initialize() -> void:
 	touch(3, fire_at, false)
 
 	touch(4, charge_at, true)
-	tick(105)
+	tick(165)
 	check(main.charge_lv(main.P.charge) == 3, "holding the Charge zone charges")
 	touch(4, charge_at, false)
 	tick()
