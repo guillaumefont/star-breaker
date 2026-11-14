@@ -96,8 +96,15 @@ the pod model spins on its `spin` child around X, the root only turns it to face
 
 ## Campaign (worlds)
 
-- `scripts/worlds.gd` holds the four worlds: palette, terrain (cave noise plus tunnel sections),
-  level script, boss and songs. Terrain heights come from `Worlds.heights(world, wx)`; a level
+- `scripts/worlds.gd` holds the six worlds: palette, terrain (cave noise plus tunnel and
+  fortress sections), level script, boss and songs. Levels are ~7300 units (4 minutes). Worlds
+  1, 2, 4 and 6 start with a hand-written first half; everything after it (and all of worlds 3
+  and 5) comes from `_sections()`: fortress rooms (`_fort_room`) inside `terrain.forts`, enemy
+  groups from the world's `pool` elsewhere, seeded so each level is always the same.
+- Fortress terrain is stepped (`fort_h`, steps of `STEP` units with an 8-unit ramp matching the
+  terrain mesh grid) and drawn as plating (`fort_a`/`fort_b`/`fort_light`, recoloured per world).
+  Towers and locked gates are gates (`add_gate` modes "tower" and "locked"); a locked gate
+  opens once no `generator` with its key is alive. Terrain heights come from `Worlds.heights(world, wx)`; a level
   script entry with `y < 0` spawns on the corridor centre line, so waves fit inside tunnels.
 - Gates (`G.gates`) and breakable walls (`block` enemies) are solid: `in_wall()` covers rock and
   gate pillars. Free fliers (`FLYERS` in `main.gd`) are clamped inside the corridor.

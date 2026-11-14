@@ -7,9 +7,11 @@ var main: Node3D
 var fails := 0
 
 const EXPECT := [
-	["shard", "icicle", "flake", "hulk", "carrier", "block"],
+	["shard", "icicle", "flake", "hulk", "carrier", "block", "gun", "generator"],
+	["wasp", "spitter", "nest", "carrier", "gun", "generator"],
 	["drone", "gun", "crawler", "piston", "carrier", "block"],
-	["ember", "seeker", "sentinel", "shard", "drone", "flake", "carrier", "block"],
+	["lancer", "drone", "bulwark", "gun", "generator", "carrier"],
+	["ember", "seeker", "sentinel", "shard", "drone", "carrier", "block", "gun"],
 ]
 
 
@@ -34,7 +36,8 @@ func fly_world(wi: int) -> void:
 	var gates := {}
 	var narrowest := 999.0
 	Input.action_press("fire")
-	for i in 9000:
+	var fort := false
+	for i in 16000:
 		var up := (i / 70) % 2 == 0
 		Input.action_press("up" if up else "down")
 		Input.action_release("down" if up else "up")
@@ -43,12 +46,14 @@ func fly_world(wi: int) -> void:
 			seen[e.type] = true
 		for g in main.G.gates:
 			gates[g.mode] = true
+		fort = fort or Worlds.in_fort(main.wdef, main.G.scroll + main.P.x)
 		var h: Vector2 = Worlds.heights(main.wdef, main.G.scroll + main.P.x)
 		narrowest = minf(narrowest, main.PH - h.x - h.y)
 		if main.G.boss:
 			break
 	Input.action_release("up")
 	Input.action_release("down")
+	check(fort, "%s: has fortress sections" % main.wdef.name)
 	var want: Array = EXPECT[wi - 1]
 	var missing := want.filter(func(t): return not seen.has(t))
 	check(missing.is_empty(), "%s: its enemies appear (missing: %s)" % [main.wdef.name, ", ".join(missing)])
@@ -127,11 +132,42 @@ func _initialize() -> void:
 	var blocks: Array = main.G.enemies.filter(func(e): return e.type == "block")
 	check(blocks.size() >= 4, "a breakable wall fills the corridor (%d blocks)" % blocks.size())
 
+	# fortress pieces: a locked barrier opens only once its generator is destroyed
+	main.new_game(1)
+	tick(80, true)
+	main.add_gate({x = main.G.scroll + 150.0, type = "gate", off = 0.0, gh = 13.0, mode = "locked"})
+	var lg: Dictionary = main.G.gates[-1]
+	var gens: Array = main.G.enemies.filter(func(e): return e.type == "generator")
+	check(gens.size() == 1 and lg.locked and lg.gh < 3.0, "a locked gate starts closed with a generator on it")
+	tick(30, true)
+	check(lg.locked and not main.gate_at(lg.x, lg.gy, 0.0).is_empty(), "the closed field is solid")
+	main.kill_e(gens[0])
+	tick(40, true)
+	check(not lg.locked and lg.gh > 12.0, "destroying the generator opens the gate")
+	main.add_gate({x = main.G.scroll + 200.0, type = "tower", side = 0, mode = "tower"})
+	var tw: Dictionary = main.G.gates[-1]
+	var th: Vector2 = Worlds.heights(main.wdef, tw.wx)
+	var free_top: float = tw.gy - tw.gh
+	var free_bot: float = tw.gy + tw.gh
+	var gap: float = minf(free_bot, main.PH - th.y) - maxf(free_top, th.x)
+	check(gap >= 33.0, "a tower leaves a way past (%.0f units)" % gap)
+	check(main.G.enemies.any(func(e): return e.type == "gun" and e.has("my")), "a tower carries a gun on its tip")
+	var fo: Dictionary = Worlds.LIST[0].terrain.forts[0]
+	var narrow := 999.0
+	var steps := {}
+	var x: float = fo.a + 80.0
+	while x < fo.b - 80.0:
+		var fh: Vector2 = Worlds.heights(Worlds.LIST[0], x)
+		narrow = minf(narrow, main.PH - fh.x - fh.y)
+		steps[int(fh.x)] = true
+		x += 8.0
+	check(narrow >= fo.gap - 0.5 and steps.size() >= 3, "fortress corridors step up and down (narrowest %.0f, %d heights)" % [narrow, steps.size()])
+
 	# worlds 2 to 4 back to back
 	main.new_game(1)
 	var bg: Color = main._env.background_color
 	check(bg != Color(Worlds.LIST[0].pal.bg), "world 2 has its own colours")
-	for wi in [1, 2, 3]:
+	for wi in range(1, Worlds.LIST.size()):
 		check(main.G.world == wi and main.wdef == Worlds.LIST[wi], "world %d: %s" % [wi + 1, main.wdef.name])
 		check(main.audio._want_song == main.wdef.song, "%s: its own song" % main.wdef.name)
 		fly_world(wi)

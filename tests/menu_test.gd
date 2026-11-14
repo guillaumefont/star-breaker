@@ -1,6 +1,6 @@
 extends SceneTree
 ## Main menu and game modes: picking Normal or Endless by keyboard, gamepad or click, Endless
-## looping the four worlds with rising difficulty, its own best score, game over and quitting
+## looping the six worlds with rising difficulty, its own best score, game over and quitting
 ## from pause back to the menu.
 
 var main: Node3D
@@ -70,9 +70,9 @@ func _initialize() -> void:
 
 	# Endless loops the worlds and gets harder
 	var d0: float = main.diff()
-	for wi in 4:
+	for wi in Worlds.LIST.size():
 		clear_world()
-	check(main.mode == "play" and main.G.world == 0 and main.G.lap == 1, "after world 4 Endless loops back to world 1, lap 2 (no ending)")
+	check(main.mode == "play" and main.G.world == 0 and main.G.lap == 1, "after the last world Endless loops back to world 1, lap 2 (no ending)")
 	check(main.diff() > d0 + 1.5 and main.bm() > 1.1, "lap 2 is tougher (diff %.1f)" % main.diff())
 	check(main.hud._banner_s.text.contains("LAP 2"), "banner announces lap 2")
 	var probe: Dictionary = main.E("drifter", 100, 60)

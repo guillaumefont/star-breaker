@@ -1,25 +1,26 @@
 extends Node3D
 ## Star Breaker: game loop. Logic runs at a fixed 60 ticks per second in "stage units"
 ## (a 224 x 126 playfield, y pointing down) and is mirrored onto low poly 3D models.
-## Two modes, picked on the main menu: Normal is a campaign through the four worlds in
+## Two modes, picked on the main menu: Normal is a campaign through the six worlds in
 ## `Worlds.LIST`, each ending with a boss, and the last boss leads to the ending. Endless
-## loops the four worlds forever, every lap tougher, with its own best score.
+## loops the six worlds forever, every lap tougher, with its own best score.
 
 const W := 224.0
 const PH := 126.0
 const CH := 64
 const SAVE_PATH := "user://save.cfg"
 ## [half width, half height, hit points, score]
-const DEF := {drifter = [3, 3, 1, 100], turret = [4, 3.5, 3, 300], hopper = [5, 3, 2, 200], carrier = [5, 4, 5, 500], shell = [10, 7, 26, 1500],
+const DEF := {wasp = [3, 2, 1, 120], spitter = [4, 3.5, 5, 300], nest = [8, 9, 30, 1600], lancer = [5, 2.4, 3, 200],
+	bulwark = [9, 7, 34, 1800], generator = [3.4, 3.4, 6, 500], drifter = [3, 3, 1, 100], turret = [4, 3.5, 3, 300], hopper = [5, 3, 2, 200], carrier = [5, 4, 5, 500], shell = [10, 7, 26, 1500],
 	shard = [4, 2, 2, 150], icicle = [2.4, 4.5, 2, 120], flake = [4, 4, 4, 250], hulk = [10, 7, 30, 1600],
 	drone = [3.5, 2, 2, 120], piston = [4, 4, 14, 400], crawler = [5.5, 3, 6, 400], gun = [4, 3.5, 4, 300],
 	ember = [2.4, 2.4, 2, 100], seeker = [3, 2, 3, 200], sentinel = [10, 7, 34, 1800], block = [3.8, 3.8, 3, 50]}
 ## Big enemies: heavy explosion and screen shake.
-const BIG := ["shell", "hulk", "sentinel"]
+const BIG := ["shell", "hulk", "sentinel", "nest", "bulwark"]
 ## Enemies fixed to the terrain (they scroll with it, `wx` is their world position).
-const FIXED := ["turret", "gun", "icicle", "piston", "block"]
+const FIXED := ["turret", "gun", "icicle", "piston", "block", "spitter", "generator"]
 ## Free fliers are kept inside the cave or tunnel so they never sit inside rock.
-const FLYERS := ["drifter", "carrier", "shell", "shard", "flake", "hulk", "drone", "seeker", "sentinel"]
+const FLYERS := ["drifter", "carrier", "shell", "shard", "flake", "hulk", "drone", "seeker", "sentinel", "wasp", "nest", "lancer", "bulwark"]
 const ACTIONS := {
 	left = [KEY_LEFT, KEY_A], right = [KEY_RIGHT, KEY_D], up = [KEY_UP, KEY_W], down = [KEY_DOWN, KEY_S],
 	fire = [KEY_Z, KEY_J], charge = [KEY_X, KEY_C, KEY_K, KEY_L], pod = [KEY_SPACE, KEY_V, KEY_SHIFT],
@@ -329,7 +330,8 @@ func _warm_up() -> void:
 	var flashed := Models.drifter()
 	var list: Array = [Models.ship(), Models.pod(), Models.drifter(), Models.turret(1), Models.turret(-1), Models.hopper(), Models.shell(), flashed,
 		Models.shard(), Models.icicle(), Models.flake(), Models.hulk(), Models.drone(), Models.piston(0), Models.piston(1),
-		Models.crawler(), Models.gun(0), Models.gun(1), Models.ember(), Models.seeker(), Models.sentinel()]
+		Models.crawler(), Models.gun(0), Models.gun(1), Models.ember(), Models.seeker(), Models.sentinel(),
+		Models.wasp(), Models.spitter(0), Models.spitter(1), Models.nest(), Models.lancer(), Models.bulwark(), Models.generator(1)]
 	for wd in Worlds.LIST:
 		list.append(Models.block(Models.M[wd.rock[0]]))
 		list.append(Models.gate(Models.M[wd.gate]))
@@ -351,7 +353,7 @@ func _warm_up() -> void:
 	w.add_child(bw)
 	var bm := Models.boss(bw)
 	Models.set_flash(bm, true)
-	for b in [Models.boss_prism(bw), Models.boss_titan(bw), Models.boss_heart(bw)]:
+	for b in [Models.boss_prism(bw), Models.boss_titan(bw), Models.boss_heart(bw), Models.boss_queen(bw), Models.boss_bastion(bw)]:
 		Models.set_flash(b, true)
 	for i in 4:
 		await get_tree().process_frame
@@ -417,8 +419,11 @@ func apply_world(i: int) -> void:
 	(Models.M.far_rock as StandardMaterial3D).albedo_color = Color(p.far)
 	_star_mats[0].albedo_color = Color(p.star_a)
 	_star_mats[1].albedo_color = Color(p.star_b)
+	(Models.M.fort_a as StandardMaterial3D).albedo_color = Color(p.plate)
+	(Models.M.fort_b as StandardMaterial3D).albedo_color = Color(p.plate2)
+	(Models.M.fort_light as StandardMaterial3D).albedo_color = Color(p.light) * Color(1.8, 1.8, 1.8, 1.0)
 	# world 1 keeps its planet top right; later worlds move it top left, clear of the bosses
-	var pp := Vector3(300, 150, -400) if i == 0 else Vector3(-270, 150, -400)
+	var pp := Vector3(300, 150, -400) if i == 0 else Vector3(-270, 215, -420)
 	planet.position = pp
 	_ring.position = pp
 	Diag.note("WORLD", "%d %s" % [i + 1, wdef.name])
@@ -459,7 +464,8 @@ func _star_layer(n: int, z0: float, z1: float, size: float, color: Color) -> Nod
 
 # ---------- terrain ----------
 
-func terrain_tris(hs: Array, side: int, seed: float) -> Array:
+## `jit` 0 gives clean machined plating (fortress sections), 1 rough rock.
+func terrain_tris(hs: Array, side: int, seed: float, jit := 1.0) -> Array:
 	var sg := 1.0 if side else -1.0
 	var zs := [11.0, 3.0, -9.0, -26.0]
 	var rec := [0.0, 3.0, 7.0, 13.0]
@@ -469,14 +475,14 @@ func terrain_tris(hs: Array, side: int, seed: float) -> Array:
 		return PH / 2.0 - hs[i] if side else -PH / 2.0 + hs[i]
 	var pt := func(i: int, j: int) -> Vector3:
 		var y: float = edge.call(i)
-		var jy := (hash1(seed + i * 7.1 + j * 13.3) - 0.5) * 4.0 if j else 0.0
-		var jx := (hash1(seed + i * 3.7 + j) - 0.5) * 4.0 if (j and i > 0 and i < 8) else 0.0
+		var jy := (hash1(seed + i * 7.1 + j * 13.3) - 0.5) * 4.0 * jit if j else 0.0
+		var jx := (hash1(seed + i * 3.7 + j) - 0.5) * 4.0 * jit if (j and i > 0 and i < 8) else 0.0
 		return Vector3(i * 8 + jx, y + sg * (rec[j] + jy), zs[j])
 	var fr := func(i: int, k: int) -> Vector3:
 		var e: float = edge.call(i)
 		var off: float = [0.0, 9.0, 24.0, 70.0][k]
-		var j := hash1(seed + i * 5.3 + k * 2.1) if (k > 0 and k < 3) else 0.5
-		var x := i * 8 + ((hash1(seed + i + k * 9.7) - 0.5) * 5.0 if (k and i > 0 and i < 8) else 0.0)
+		var j := lerpf(0.5, hash1(seed + i * 5.3 + k * 2.1), jit) if (k > 0 and k < 3) else 0.5
+		var x := i * 8 + ((hash1(seed + i + k * 9.7) - 0.5) * 5.0 * jit if (k and i > 0 and i < 8) else 0.0)
 		return Vector3(x, e + sg * (off + (j - 0.5) * 6.0), zs[0] + (0.0 if k == 0 else (j - 0.5) * 10.0 - (12.0 if k == 3 else 0.0)))
 	var tris := []
 	var quad := func(a: Vector3, b: Vector3, c: Vector3, d: Vector3) -> void:
@@ -505,7 +511,18 @@ func build_chunk(c: int) -> Node3D:
 		if mx < 0.6:
 			continue
 		any = true
-		var mesh := Geo.build_facing(terrain_tris(hs, side, c * 31 + side * 977), Vector3(0, 0.15 if side == 0 else -0.15, 1).normalized())
+		var fort := Worlds.in_fort(wdef, wx0 + 32.0)
+		var mesh := Geo.build_facing(terrain_tris(hs, side, c * 31 + side * 977, 0.0 if fort else 1.0), Vector3(0, 0.15 if side == 0 else -0.15, 1).normalized())
+		if fort:
+			# fortress plating: alternate panel colours, a strip of lights along the edge
+			grp.add_child(Models.mesh(mesh, Models.M.fort_a if c % 2 else Models.M.fort_b))
+			var sgn := 1.0 if side else -1.0
+			for i in [1, 4, 7]:
+				var base: float = PH / 2.0 - hs[i] if side else -PH / 2.0 + hs[i]
+				var lt := Models.mesh(Models.geo("fl8", func(): return Geo.box(4, 1.2, 1.2)), Models.M.fort_light)
+				lt.position = Vector3(i * 8, base + sgn * 1.4, 10.4)
+				grp.add_child(lt)
+			continue
 		grp.add_child(Models.mesh(mesh, Models.M[wdef.rock[0] if hash1(c + side * 5) > 0.5 else wdef.rock[1]]))
 		for i in range(1, 8):
 			if hs[i] < 5.0 or hash1(c * 17 + i * 3 + side) < 0.55:
@@ -769,6 +786,12 @@ func E(type: String, x: float, y: float, o := {}) -> Dictionary:
 		"seeker": e.m = Models.seeker()
 		"sentinel": e.m = Models.sentinel()
 		"block": e.m = Models.block(Models.M[wdef.rock[0]])
+		"wasp": e.m = Models.wasp()
+		"spitter": e.m = Models.spitter(e.side)
+		"nest": e.m = Models.nest()
+		"lancer": e.m = Models.lancer()
+		"bulwark": e.m = Models.bulwark()
+		"generator": e.m = Models.generator(e.side)
 		_: e.m = Models.shell()
 	world.add_child(e.m)
 	Diag.once("spawn " + type)
@@ -825,6 +848,28 @@ func spawn(s: Dictionary) -> void:
 				E("seeker", ex + i * 18, sy + (i % 2) * 14.0 - 7.0, {vx = -1.3, vy = 0.0})
 		"gate":
 			add_gate(s)
+		"tower":
+			var t := s.duplicate()
+			t.mode = "tower"
+			add_gate(t)
+		"flyers":
+			# the world's own small fliers, on the corridor line (fortress rooms)
+			var f := {x = s.x, type = wdef.flyer, y = s.get("y", -1.0), n = 4, amp = 8.0}
+			if f.type == "waves":
+				f.type = "wave"
+			spawn(f)
+		"wasps":
+			for i in s.n:
+				E("wasp", ex + i * 10, sy + (i % 3 - 1) * 6.0, {by = sy + (i % 3 - 1) * 6.0, ph = i * 0.9, st = 0, vx = 0.0, vy = 0.0})
+		"lancers":
+			for i in s.n:
+				E("lancer", ex + 4, 0, {st = 0, hold = 30 + i * 34, vx = 0.0})
+		"nest", "bulwark":
+			E(s.type, ex + 6, sy, {by = sy, stay = 300})
+		"spitter":
+			var h := ceil_h(s.x) if s.side else floor_h(s.x)
+			if h > 5.0:
+				E("spitter", ex, 0, {wx = s.x, side = s.side})
 		"wall":
 			var h := Worlds.heights(wdef, s.x)
 			var y: float = h.x + 3.0
@@ -847,6 +892,32 @@ func add_gate(s: Dictionary) -> void:
 	world.add_child(g.m)
 	Diag.once("gate " + g.mode)
 	G.gates.append(g)
+	match g.mode:
+		"tower":
+			# one pillar from the floor (side 0) or the ceiling (side 1), a gun on its tip;
+			# it always leaves a 34-unit way past
+			var h := Worlds.heights(wdef, s.x)
+			var th := maxf(8.0, PH - h.x - h.y - 34.0)
+			var top_end := -300.0
+			var bot_start := PH + 300.0
+			if s.get("side", 0):
+				top_end = h.x + th
+			else:
+				bot_start = PH - h.y - th
+			g.gy = (top_end + bot_start) / 2.0
+			g.gh = (bot_start - top_end) / 2.0
+			g.gh0 = g.gh
+			g.mode = "fixed"
+			g.hw = 5.0
+			var side: int = s.get("side", 0)
+			E("gun", W + 8 + xm, 0, {wx = s.x, side = side, my = (top_end + 3.0) if side else (bot_start - 3.0),
+				rate = maxi(70, 120 - 10 * int(diff()))})
+		"locked":
+			# closed by an energy field until the generator on its top lip is destroyed
+			g.locked = true
+			g.key = uid()
+			g.gh = -1.0
+			E("generator", W + 8 + xm, 0, {wx = s.x - 7.0, side = 1, my = g.gy - g.gh0 + 3.4, key = g.key})
 	update_gate(g)
 
 
@@ -857,6 +928,13 @@ func update_gate(g: Dictionary) -> void:
 			g.gy = g.base + g.amp * sin(G.t * g.rate + g.wx)
 		"shutter":
 			g.gh = lerpf(2.0, g.gh0, clampf(0.5 + 0.8 * sin(G.t * g.rate + g.wx), 0.0, 1.0))
+		"locked":
+			if g.locked and not G.enemies.any(func(e): return e.type == "generator" and not e.dead and e.key == g.key):
+				g.locked = false
+				Diag.once("gate unlocked")
+				audio.play("pod")
+			if not g.locked:
+				g.gh = move_toward(g.gh, g.gh0, 0.6)
 	if g.x < -30 - xm:
 		g.dead = true
 
@@ -875,8 +953,14 @@ func gate_at(x: float, y: float, pad: float) -> Dictionary:
 func sync_gate(g: Dictionary) -> void:
 	var u: Dictionary = g.m.get_meta("u")
 	var h := Worlds.heights(wdef, g.wx)
-	var top_end: float = g.gy - g.gh
-	var bot_start: float = g.gy + g.gh
+	var vis_gh: float = g.gh0 if g.get("locked", false) else g.gh
+	var top_end: float = g.gy - vis_gh
+	var bot_start: float = g.gy + vis_gh
+	var f: Node3D = u.field
+	f.visible = g.get("locked", false)
+	if f.visible:
+		f.scale = Vector3(g.hw * 1.4, vis_gh * 2.0, 3)
+		f.position = Vector3(X(g.x), Y(g.gy), 3)
 	var top0: float = (h.x - 8.0) if h.x > 1.0 else -10.0
 	var bot1: float = (PH - h.y + 8.0) if h.y > 1.0 else PH + 10.0
 	var top: MeshInstance3D = u.top
@@ -910,8 +994,9 @@ func ring(x: float, y: float, n: int, s: float) -> void:
 		bullet(x, y, cos(a) * s * bm(), sin(a) * s * bm())
 
 
-func bullet(x: float, y: float, vx: float, vy: float) -> void:
-	var b := {x = x, y = y, vx = vx, vy = vy, hw = 1.3, hh = 1.3, dead = false}
+## `grav` pulls the bullet down each tick (arcing lobs).
+func bullet(x: float, y: float, vx: float, vy: float, grav := 0.0) -> void:
+	var b := {x = x, y = y, vx = vx, vy = vy, hw = 1.3, hh = 1.3, dead = false, g = grav}
 	b.m = Models.mesh(Models.geo("eb", func(): return Geo.octa(1.7)), Models.M.ebullet)
 	b.m.add_child(Models.glow("ffb547", 7))
 	world.add_child(b.m)
@@ -1408,6 +1493,20 @@ func spawn_gboss(kind: String) -> void:
 				_part("top", 30 * k, 7.0, {oy = -28.0, cd = 90}), _part("bot", 30 * k, 7.0, {oy = 28.0, cd = 150}),
 				_part("core", 120 * k, 7.5, {core = true, armour = true})]
 			B.m = Models.boss_titan(world)
+		"queen":
+			B.home = W - 48.0
+			list = [_part("top", 28 * k, 9.0, {oy = -25.0, cd = 80}), _part("bot", 28 * k, 9.0, {oy = 25.0, cd = 145}),
+				_part("sac", 40 * k, 11.0, {cd = 120}), _part("core", 110 * k, 8.5, {core = true, armour = true})]
+			B.m = Models.boss_queen(world)
+		"bastion":
+			B.home = W - 44.0
+			B.rot = 0.0
+			for i in 4:
+				list.append(_part("p%d" % i, 9999, 7.0, {armour = true, i = i}))
+			for i in 4:
+				list.append(_part("g%d" % i, 16 * k, 5.5, {i = i, oy = [-44.0, -22.0, 22.0, 44.0][i], cd = 60 + i * 30}))
+			list.append(_part("core", 150 * k, 9.0, {core = true}))
+			B.m = Models.boss_bastion(world)
 		_:
 			B.home = W - 56.0
 			for i in 8:
@@ -1534,6 +1633,86 @@ func update_gboss(B: Dictionary) -> void:
 			if B.open and cyc % 40 == 20:
 				aim(c.x - 4, c.y, 1.4)
 			B.lid += ((1.0 if B.open else 0.0) - B.lid) * 0.15
+		"queen":
+			if not B.enter:
+				B.y = 63.0 + sin(B.bt * 0.014) * 20.0
+				B.x = B.home + sin(B.bt * 0.009) * 10.0
+			var wings := 0
+			for key in ["top", "bot"]:
+				var p: Dictionary = P2[key]
+				p.x = B.x + 2.0
+				p.y = B.y + p.oy + sin(B.t * 0.3) * 1.5
+				if not p.alive:
+					continue
+				wings += 1
+				if B.enter:
+					continue
+				p.cd -= 1
+				if p.cd <= 0:
+					fan(p.x - 4, p.y, 1.0, 5, 0.22)
+					p.cd = 130
+			var sac: Dictionary = P2.sac
+			sac.x = B.x + 16.0
+			sac.y = B.y
+			if sac.alive and not B.enter:
+				sac.cd -= 1
+				if sac.cd <= 0 and G.enemies.size() < 30:
+					for j in 3:
+						E("wasp", sac.x - 4, sac.y + (j - 1) * 10.0, {by = sac.y + (j - 1) * 10.0, ph = j * 1.1, st = 0, vx = 0.0, vy = 0.0, score = 0})
+					sac.cd = 200
+			var c: Dictionary = P2.core
+			c.x = B.x - 14.0
+			c.y = B.y
+			c.armour = wings > 0
+			if wings == 0:
+				if not B.phase2:
+					B.phase2 = true
+					audio.play("alarm")
+				var cyc: int = B.t % 240
+				if cyc < 120 and B.t % 12 == 0:
+					fan(c.x - 6, c.y, 1.4, 3, 0.18)
+				if cyc == 180:
+					for j in 7:
+						bullet(c.x, c.y, -0.5 - j * 0.18, -1.6, 0.022)
+			elif not B.enter and B.t % 240 == 200:
+				aim(c.x - 6, c.y, 1.3)
+		"bastion":
+			if not B.enter:
+				B.y = 63.0 + sin(B.bt * 0.008) * 8.0
+			var guns := 0
+			for i in 4:
+				var p: Dictionary = P2["g%d" % i]
+				p.x = B.x + 4.0
+				p.y = B.y + p.oy
+				if not p.alive:
+					continue
+				guns += 1
+				if B.enter:
+					continue
+				p.cd -= 1
+				if p.cd <= 0:
+					aim(p.x - 5, p.y, 1.2)
+					p.cd = 120
+			B.rot += 0.03 if guns == 0 else 0.015
+			for i in 4:
+				var p: Dictionary = P2["p%d" % i]
+				var a: float = i * TAU / 4.0 + B.rot
+				p.x = B.x - 6.0 + cos(a) * 19.0
+				p.y = B.y + sin(a) * 19.0
+			var c: Dictionary = P2.core
+			c.x = B.x - 6.0
+			c.y = B.y
+			if guns == 0:
+				if not B.phase2:
+					B.phase2 = true
+					audio.play("alarm")
+				var cyc: int = B.t % 200
+				if cyc < 36 and cyc % 6 == 0:
+					aim(c.x, c.y, 2.0)
+				if cyc == 120:
+					ring(c.x, c.y, 12, 0.8)
+			elif not B.enter and B.t % 260 == 130:
+				ring(c.x, c.y, 8, 0.7)
 		_:
 			var nodes := 0
 			for i in 8:
@@ -1636,6 +1815,40 @@ func sync_gboss(B: Dictionary) -> void:
 				n.position = Vector3(X(p.x), Y(p.y), 3)
 				(n.get_meta("piv") as Node3D).rotation.z = atan2(-(P.y - p.y), P.x - p.x) - PI
 				Models.set_flash(n, p.flash > 0)
+		"queen":
+			var head: Node3D = u.core
+			head.position = Vector3(X(c.x), Y(c.y), 2)
+			head.rotation.y = sin(B.t * 0.03) * 0.3
+			Models.set_flash(head, c.flash > 0 and not c.armour)
+			var sac: Dictionary = P2.sac
+			var sn: Node3D = u.sac
+			sn.visible = sac.alive
+			sn.position = Vector3(X(sac.x), Y(sac.y), -2)
+			sn.scale = Vector3.ONE * (1.0 + sin(B.t * 0.08) * 0.05)
+			Models.set_flash(sn, sac.flash > 0)
+			for key in ["top", "bot"]:
+				var p: Dictionary = P2[key]
+				var n: Node3D = u[key]
+				n.visible = p.alive
+				n.position = Vector3(X(p.x), Y(B.y), 0)
+				n.rotation.x = sin(B.t * 0.6) * 0.5
+				Models.set_flash(n, p.flash > 0)
+		"bastion":
+			var core: Node3D = u.core
+			core.position = Vector3(X(c.x), Y(c.y), 0)
+			core.rotation.z = -B.rot * 2.0
+			Models.set_flash(core, c.flash > 0)
+			(u.frame as Node3D).position = Vector3(X(B.x + 10), Y(B.y), -6)
+			for i in 4:
+				var p: Dictionary = P2["p%d" % i]
+				var pl: Node3D = u.plates[i]
+				pl.position = Vector3(X(p.x), Y(p.y), 4)
+				pl.rotation.z = -(i * TAU / 4.0 + B.rot)
+				var g: Dictionary = P2["g%d" % i]
+				var gn: Node3D = u.guns[i]
+				gn.visible = g.alive
+				gn.position = Vector3(X(g.x), Y(g.y), 2)
+				Models.set_flash(gn, g.flash > 0)
 		_:
 			var core: Node3D = u.core
 			core.position = Vector3(X(c.x), Y(c.y), 0)
@@ -1703,7 +1916,8 @@ func step() -> void:
 				game_over()
 				return
 			G.lives -= 1
-			P.merge({alive = true, x = -10.0, y = 63.0, entering = true, inv = 150, charge_held = false}, true)
+			# respawn on the corridor centre: in a tunnel or fortress 63 may be inside a wall
+			P.merge({alive = true, x = -10.0, y = mid_y(G.scroll + 28.0), entering = true, inv = 150, charge_held = false}, true)
 			if pod.state == "free":
 				pod.state = "return"
 	else:
@@ -1888,7 +2102,10 @@ func step() -> void:
 					aim(e.x, e.y, 1)
 			"turret", "gun":
 				e.x = e.wx - G.scroll
-				e.y = ceil_h(e.wx) + 3 if e.side else PH - floor_h(e.wx) - 3
+				if e.has("my"):
+					e.y = e.my
+				else:
+					e.y = ceil_h(e.wx) + 3 if e.side else PH - floor_h(e.wx) - 3
 				if e.x > 14 and e.x < W - 6 and e.t % e.rate == e.rate - 1:
 					if e.type == "gun" and e.t % (e.rate * 2) == e.rate * 2 - 1:
 						fan(e.x, e.y + (2.0 if e.side else -2.0), 1.0, 3, 0.25)
@@ -1896,6 +2113,48 @@ func step() -> void:
 						aim(e.x, e.y + (2.0 if e.side else -2.0), 1.05)
 			"block":
 				e.x = e.wx - G.scroll
+			"generator":
+				e.x = e.wx - G.scroll
+				e.y = e.my
+			"spitter":
+				# wall pod: lobs three arcing blobs at the ship
+				e.x = e.wx - G.scroll
+				e.y = ceil_h(e.wx) + 3.5 if e.side else PH - floor_h(e.wx) - 3.5
+				if e.x > 16 and e.x < W - 6 and e.t % 130 == 90 and P.alive:
+					var dx: float = P.x - e.x
+					var up := -1.4 if not e.side else 0.2
+					for k in 3:
+						bullet(e.x, e.y, clampf(dx / 80.0, -1.2, 1.2) + (k - 1) * 0.25, up, 0.022)
+			"wasp":
+				# buzzes in on a zigzag, then dives at the ship once
+				if e.st == 0:
+					e.x -= 1.5
+					e.y = e.by + sin(e.t * 0.12 + e.ph) * 9.0
+					if e.t == 50 + int(e.ph * 6.0) and P.alive:
+						var a := atan2(P.y - e.y, P.x - e.x)
+						e.vx = cos(a) * 2.2
+						e.vy = sin(a) * 2.2
+						e.st = 1
+				else:
+					e.x += e.vx
+					e.y += e.vy
+			"lancer":
+				# appears at the right edge, holds while it lines up with the ship, then dashes
+				match e.st:
+					0:
+						e.x = lerpf(e.x, W - 14.0 + xm, 0.1)
+						if P.alive:
+							e.y += clampf(P.y - e.y, -0.9, 0.9) if e.t > 1 else (P.y - e.y)
+						if e.t >= e.hold:
+							e.st = 1
+							e.t = 0
+					1:
+						if e.t > 24:
+							e.st = 2
+							Diag.once("lancer dash")
+					_:
+						e.vx = maxf(-4.2, e.vx - 0.3)
+						e.x += e.vx
 			"piston":
 				# slams out of the wall, holds, pulls back; the hitbox is rod + head
 				e.x = e.wx - G.scroll
@@ -1990,12 +2249,20 @@ func step() -> void:
 			"carrier":
 				e.x -= 0.45
 				e.y = e.by + sin(e.t * 0.05) * 7.0
-			"shell", "hulk", "sentinel":
+			"shell", "hulk", "sentinel", "nest", "bulwark":
 				if e.x > W - 48 and e.stay > 0:
 					e.x -= 0.6
 				elif e.stay > 0:
 					e.stay -= 1
-					if e.stay % 70 == 35:
+					if e.type == "nest":
+						if e.stay % 100 == 50 and G.enemies.size() < 40:
+							for k in 3:
+								E("wasp", e.x - 6, e.y + (k - 1) * 8.0, {by = e.y + (k - 1) * 8.0, ph = k * 1.3, st = 0, vx = 0.0, vy = 0.0, score = 0})
+					elif e.type == "bulwark" and e.stay % 90 == 45:
+						ring(e.x - 6, e.y, 8 + int(e.stay / 90.0) % 2 * 4, 0.7)
+					elif e.type == "bulwark":
+						pass
+					elif e.stay % 70 == 35:
 						if e.type == "sentinel" and e.stay % 140 == 35:
 							ring(e.x - 4, e.y, 10, 0.75)
 						else:
@@ -2039,6 +2306,7 @@ func step() -> void:
 
 	# enemy bullets
 	for b in G.eb:
+		b.vy += b.g
 		b.x += b.vx
 		b.y += b.vy
 		if b.x < -8 - xm or b.x > W + 8 + xm or b.y < -8 or b.y > PH + 8 or in_wall(b.x, b.y, 0):
@@ -2236,6 +2504,26 @@ func sync_e(e: Dictionary) -> void:
 			(m.get_meta("ring") as Node3D).rotation.z = e.t * 0.03
 		"hulk":
 			m.rotation = Vector3(0, sin(e.t * 0.02) * 0.25, sin(e.t * 0.03) * 0.1)
+		"wasp":
+			var wings: Array = m.get_meta("wings")
+			for i in wings.size():
+				wings[i].rotation.x = (0.5 + sin(e.t * 1.3) * 0.5) * (1.0 if i == 0 else -1.0)
+			m.rotation = Vector3(0, PI, clampf(e.vy * 0.35, -0.7, 0.7) if e.st == 1 else sin(e.t * 0.12) * 0.3)
+		"spitter":
+			var bulb: Node3D = m.get_meta("bulb")
+			var k := 1.0 + maxf(0.0, sin(e.t * TAU / 130.0 - 1.2)) * 0.25
+			bulb.scale = Vector3(k, k, k)
+		"nest":
+			m.rotation = Vector3(0, sin(e.t * 0.02) * 0.4, sin(e.t * 0.05) * 0.08)
+		"lancer":
+			m.rotation.x = e.t * 0.08 if e.st < 2 else 0.0
+			(m.get_meta("flame") as Node3D).scale = Vector3.ONE * (2.2 if e.st == 2 else (1.0 + sin(e.t * 0.6) * 0.3))
+			m.rotation.y = PI
+		"bulwark":
+			m.rotation.y = sin(e.t * 0.02) * 0.2
+		"generator":
+			(m.get_meta("core") as Node3D).rotation.y = e.t * 0.08
+			(m.get_meta("core") as Node3D).scale = Vector3.ONE * (1.0 + sin(e.t * 0.2) * 0.15)
 		"hopper":
 			m.rotation.y = PI if e.vx < 0 else 0.0
 			var legs: Array = m.get_meta("legs")

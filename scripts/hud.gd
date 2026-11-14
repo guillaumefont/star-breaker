@@ -548,7 +548,7 @@ func _build_title() -> Control:
 	v.offset_bottom = -54
 	var logo := _vbox(0)
 	v.add_child(logo)
-	var sub := _label("FOUR WORLDS · ONE STAR", 18, 700, C_TEXT, 8.0)
+	var sub := _label("SIX WORLDS · ONE STAR", 18, 700, C_TEXT, 8.0)
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	logo.add_child(sub)
 	var star := _label("STAR", 72, 800)
@@ -561,7 +561,7 @@ func _build_title() -> Control:
 	logo.add_child(st)
 	var cards := _hbox(22)
 	v.add_child(cards)
-	cards.add_child(_mode_card("normal", "Normal", "Campaign", "Break through four worlds\nto the heart of the star.", C_LANCE))
+	cards.add_child(_mode_card("normal", "Normal", "Campaign", "Break through six worlds\nto the heart of the star.", C_LANCE))
 	cards.add_child(_mode_card("endless", "Endless", "No end", "The worlds loop forever,\ntougher every lap.", C_SPORE))
 	select_mode(selected_mode)
 	var kr := _keys([["◀ ▶", "Choose"], ["Enter", "Play"], ["WASD", "Move"], ["Z", "Fire"], ["X", "Charge"], ["Space", "Pod"], ["Esc", "Pause"]], 1000)
@@ -629,7 +629,7 @@ func _mode_card(key: String, title: String, tag: String, desc: String, col: Colo
 func _draw_mode_icon(c: Control, key: String, col: Color) -> void:
 	var h := c.size.y / 2.0
 	if key == "normal":
-		# four worlds on a path ending at the star
+		# worlds on a path ending at the star
 		var pts := [Vector2(3, h + 6), Vector2(13, h - 2), Vector2(23, h + 4), Vector2(33, h - 5)]
 		for i in 3:
 			c.draw_line(pts[i], pts[i + 1], Color(col, 0.5), 2.0, true)
@@ -799,7 +799,7 @@ func _build_over() -> Control:
 func _build_end() -> Control:
 	var m := _menu_bg(self)
 	var v := _center_col(m, 18)
-	var cap := _label("ALL FOUR WORLDS CLEARED", 18, 700, C_AMBER, 6.0)
+	var cap := _label("ALL SIX WORLDS CLEARED", 18, 700, C_AMBER, 6.0)
 	cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(cap)
 	var h := _grad_label("STAR BROKEN", 72, 800, 0, [C_AMBER, C_SPORE, C_VIOLET])
