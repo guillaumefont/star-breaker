@@ -44,14 +44,15 @@ static func init() -> void:
 		plate = std("7078a0"), plate2 = std("50587e"), neon = std("ff4fa3", "ff2f8f", 1.6), neon2 = std("4fe3d6", "3fc0c0", 1.4),
 		armor = std("c0c8e0", "202848", 0.3),
 		# fortress sections of every world (recoloured per world by main.apply_world)
-		fort_a = std("5d5a86"), fort_b = std("48456e"), fort_light = basic("4fe3d6", 1.8), field = add_mat("ff4fa3", 0.4),
+		fort_a = std("5d5a86"), fort_b = std("48456e"), fort_light = basic("4fe3d6", 1.8),
+		fort_trim = std("3e3c5e"), fort_dark = std("22213a"), fort_back = std("16142a"), fort_win = basic("4fe3d6", 0.9), field = add_mat("ff4fa3", 0.4),
 	}
 	# opaque on purpose: a lit see-through material was a suspect for the Android crash
 	M.wing = std("e9f2c4")
 	for k in ["rock", "rock2", "ice_rock", "ice_rock2", "metal_rock", "metal_rock2", "magma_rock", "magma_rock2", "hive_rock", "hive_rock2",
-			"plate", "plate2", "fort_a", "fort_b", "ring", "wing", "core_skin"]:
+			"plate", "plate2", "fort_a", "fort_b", "fort_back", "ring", "wing", "core_skin"]:
 		(M[k] as BaseMaterial3D).cull_mode = BaseMaterial3D.CULL_DISABLED
-	for k in ["planet", "ring", "far_rock"]:
+	for k in ["planet", "ring", "far_rock", "fort_back"]:
 		(M[k] as BaseMaterial3D).disable_fog = true
 	(M.disc as BaseMaterial3D).no_depth_test = true
 	(M.disc as BaseMaterial3D).render_priority = 1
@@ -561,10 +562,18 @@ static func gate(glow_mat: Material) -> Node3D:
 	var col := geo("gtP", func(): return Geo.box(1, 1, 1))
 	var lip := geo("gtL", func(): return Geo.box(8, 2, 12))
 	var u := {}
+	var ribs := Geo.cached("gtRib", func(): return _pillar_strips([-0.34, 0.34], 0.09))
+	var strip := Geo.cached("gtStrip", func(): return _pillar_strips([0.0], 0.14))
+	var collar := geo("gtC", func(): return Geo.box(1, 1, 1))
 	for k in ["top", "bot"]:
 		var p := mesh(col, M.gate)
 		g.add_child(p)
 		u[k] = p
+		# dressing: grooves and a lit strip down the front (scaled like the pillar), a collar
+		for d in [[ribs, M.fort_trim, "_rib"], [strip, M.fort_win, "_strip"], [collar, M.fort_trim, "_collar"]]:
+			var n := mesh(d[0], d[1])
+			g.add_child(n)
+			u[k + d[2]] = n
 		var l := mesh(lip, glow_mat)
 		g.add_child(l)
 		u[k + "_lip"] = l
@@ -576,6 +585,16 @@ static func gate(glow_mat: Material) -> Node3D:
 	u.field = f
 	g.set_meta("u", u)
 	return g
+
+
+## Thin vertical strips on the front of a unit pillar (x in -0.5..0.5, front at z = 0.5).
+static func _pillar_strips(xs: Array, w: float) -> ArrayMesh:
+	var tris := []
+	for x in xs:
+		var c := Vector3(x, 0, 0.52)
+		for t in Geo.xf(Geo.box(w, 1.0, 0.1), Transform3D(Basis(), c)):
+			tris.append(Geo.orient(t, c))
+	return Geo.build_wound(tris)
 
 
 # ---------- bosses of worlds 2 to 4 ----------
