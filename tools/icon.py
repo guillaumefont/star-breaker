@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Star Breaker app icon: the gunship and its crystal pod bursting out of a round medal,
-in front of a dusk space scene. Same family as the Tether Rally and Aurite Front icons
-(flat shaded emblem with a cream rim, scenic background with light beams, ridges and
-particles).
+"""Star Breaker app icon: the gunship and its crystal pod flying over a dusk space scene,
+with no frame (Guillaume's pick, option A). Same family as the Tether Rally and Aurite Front
+icons: one bold flat-shaded subject, a dusk sky with light beams from the top, a ridged
+horizon and sparks.
 
 Usage (from the repo root): python3 tools/icon.py
 Writes icon.png (256, rounded: project icon and web favicon), icons/icon-192.png (legacy
 launcher icon), icons/adaptive-{background,foreground,monochrome}-432.png (Android adaptive
-layers, the emblem stays inside the central safe circle) and store/icon-512.png (square,
+layers, the ship stays inside the central safe circle) and store/icon-512.png (square,
 for stores and previews). Needs Pillow.
 """
 import math
@@ -61,7 +61,7 @@ def background():
     glow = layer()
     ImageDraw.Draw(glow).ellipse([-10 * U, hz - 16 * U, N + 10 * U, hz + 14 * U], fill=(255, 140, 120, 120))
     im.alpha_composite(blurred(glow, 9 * U))
-    # searchlight beams from the top, meeting behind the medal
+    # searchlight beams from the top, meeting behind the ship
     for ox, ang in ((0.5, 0.0), (0.2, 0.42), (0.8, -0.42)):
         b = layer()
         o = (N * ox, -4 * U)
@@ -119,10 +119,6 @@ def rock(d, cx, cy, r, sd):
 
 # ---------------------------------------------------------------- foreground
 
-MEDAL = (54 * U, 55 * U)
-R_OUT, R_IN = 27 * U, 22.8 * U
-
-
 def ship_xf(p, org, ang, L):
     x, y = p[0] * L, p[1] * L
     c, s = math.cos(ang), math.sin(ang)
@@ -156,9 +152,9 @@ POD_R = 0.14
 
 def ship(scale_flame=1.0):
     im = layer()
-    org = (52 * U, 58 * U)
+    org = (51 * U, 58 * U)
     ang = math.radians(-27)
-    L = 40 * U
+    L = 44 * U
     # exhaust flame and engine glow
     fl = layer()
     fd = ImageDraw.Draw(fl)
@@ -221,47 +217,8 @@ def pod(org, ang, L):
     return im
 
 
-def medal():
-    im = layer()
-    cx, cy = MEDAL
-    sh = layer()
-    ImageDraw.Draw(sh).ellipse([cx - R_OUT, cy - R_OUT + 1.8 * U, cx + R_OUT, cy + R_OUT + 1.8 * U], fill=(0, 0, 0, 150))
-    im.alpha_composite(blurred(sh, 1.8 * U))
-    d = ImageDraw.Draw(im, 'RGBA')
-    # cream rim, a shade darker on its lower half
-    d.ellipse([cx - R_OUT, cy - R_OUT, cx + R_OUT, cy + R_OUT], fill=hexc('e9e0cb'))
-    d.chord([cx - R_OUT, cy - R_OUT, cx + R_OUT, cy + R_OUT], 20, 160, fill=hexc('cfc4ab'))
-    hi = 24.9 * U
-    d.arc([cx - hi, cy - hi, cx + hi, cy + hi], 200, 320, fill=hexc('fbf6ea'), width=int(1.0 * U))
-    # deep space inside
-    inner = layer()
-    idr = ImageDraw.Draw(inner, 'RGBA')
-    for i in range(40, 0, -1):
-        t = i / 40
-        rr = R_IN * t
-        idr.ellipse([cx - rr, cy - rr - (1 - t) * 3 * U, cx + rr, cy + rr - (1 - t) * 3 * U], fill=lerp(hexc('1e2c4f'), hexc('0b1230'), t))
-    mask = Image.new('L', (N, N), 0)
-    ImageDraw.Draw(mask).ellipse([cx - R_IN, cy - R_IN, cx + R_IN, cy + R_IN], fill=255)
-    rnd = random.Random(5)
-    for _ in range(26):
-        a, rr = rnd.uniform(0, math.tau), R_IN * math.sqrt(rnd.uniform(0, 1))
-        x, y = cx + math.cos(a) * rr, cy + math.sin(a) * rr
-        s = rnd.uniform(0.15, 0.32) * U
-        idr.ellipse([x - s, y - s, x + s, y + s], fill=(255, 255, 255, rnd.randint(120, 230)))
-    # speed lines streaking past behind the ship
-    for y0, x0, x1, al in ((47, 36, 54, 120), (66, 44, 64, 90), (72, 50, 62, 70)):
-        idr.line([(x0 * U, y0 * U), (x1 * U, (y0 - (x1 - x0) * 0.51) * U)], fill=(160, 230, 255, al), width=int(0.5 * U))
-    inner.putalpha(Image.composite(inner.getchannel('A'), Image.new('L', (N, N), 0), mask))
-    im.alpha_composite(inner)
-    # thin inner rule
-    rr = R_IN - 1.6 * U
-    d.ellipse([cx - rr, cy - rr, cx + rr, cy + rr], outline=(150, 175, 220, 90), width=int(0.35 * U))
-    d.ellipse([cx - R_IN, cy - R_IN, cx + R_IN, cy + R_IN], outline=hexc('a99f86'), width=int(0.5 * U))
-    return im
-
-
 def foreground():
-    im = medal()
+    im = layer()
     s, org, ang, L = ship()
     sh = layer()
     sh.paste((0, 0, 0, 140), mask=s.getchannel('A'))
