@@ -48,6 +48,7 @@ godot --headless --path . --script tests/touch_test.gd   # floating stick and in
 godot --headless --path . --script tests/audio_test.gd   # songs build on the main thread, sound effects exist
 godot --headless --path . --script tests/screen_test.gd  # crash report, safe graphics, wide and narrow screens
 godot --headless --path . --script tests/update_test.gd  # self-update: pack download, checks, APK offer
+godot --headless --path . --script tests/icon_test.gd    # project icon and Android launcher icon layers
 ```
 
 Screenshots (needs a display, e.g. `xvfb-run -a`):
@@ -56,6 +57,17 @@ Close-ups of the player ship and pod (side, three-quarter, top, rear, pod launch
 `godot --path . --rendering-method gl_compatibility --script tools/ship_shots.gd -- /tmp/ship`
 Hulls are lofted with `Geo.loft()` (cross-sections along X) and baked with `Geo.build_wound()`;
 the pod model spins on its `spin` child around X, the root only turns it to face backwards.
+
+## App icon
+
+- Icon (Guillaume, 2026-11-14): same family as his Tether Rally and Aurite Front icons, a round
+  cream-rimmed medal with a dark inside on a dusk scene (light beams from the top, planet rim and
+  low poly ridges, sparks). Here the gunship flies out of the medal with its crystal pod.
+- One source, `tools/icon.py` (Pillow): `python3 tools/icon.py` rewrites `icon.png` (project
+  icon and web favicon), `icons/` (launcher icon and the adaptive background, foreground and
+  monochrome layers) and `store/icon-512.png`. Commit the PNGs; CI doesn't run it.
+- A launcher icon lives in the APK, not the game pack: a new icon only shows after installing
+  a new APK.
 
 ## Self-update (Android)
 

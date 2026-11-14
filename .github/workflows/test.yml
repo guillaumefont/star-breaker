@@ -30,3 +30,5 @@ jobs:
         run: ./godot --headless --path . --script tests/screen_test.gd
       - name: Self-update (game pack download, checks, APK offer)
         run: ./godot --headless --path . --script tests/update_test.gd
+      - name: App icons (project icon, Android launcher layers)
+        run: ./godot --headless --path . --script tests/icon_test.gd
