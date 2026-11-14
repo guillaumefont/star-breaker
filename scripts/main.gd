@@ -422,6 +422,10 @@ func apply_world(i: int) -> void:
 	(Models.M.fort_a as StandardMaterial3D).albedo_color = Color(p.plate)
 	(Models.M.fort_b as StandardMaterial3D).albedo_color = Color(p.plate2)
 	(Models.M.fort_light as StandardMaterial3D).albedo_color = Color(p.light) * Color(1.8, 1.8, 1.8, 1.0)
+	(Models.M.fort_trim as StandardMaterial3D).albedo_color = Color(p.plate2).darkened(0.3)
+	(Models.M.fort_dark as StandardMaterial3D).albedo_color = Color(p.plate2).darkened(0.62)
+	(Models.M.fort_back as StandardMaterial3D).albedo_color = Color(p.bg).lerp(Color(p.plate2), 0.16)
+	(Models.M.fort_win as StandardMaterial3D).albedo_color = Color(p.light) * Color(0.6, 0.6, 0.6, 1.0)
 	# world 1 keeps its planet top right; later worlds move it top left, clear of the bosses
 	var pp := Vector3(300, 150, -400) if i == 0 else Vector3(-270, 215, -420)
 	planet.position = pp
@@ -500,6 +504,7 @@ func build_chunk(c: int) -> Node3D:
 	var wx0 := float(c * CH)
 	var grp := Node3D.new()
 	var any := false
+	var fort_hs := [null, null]
 	for side in [0, 1]:
 		var hs := []
 		var mx := 0.0
@@ -516,6 +521,9 @@ func build_chunk(c: int) -> Node3D:
 		if fort:
 			# fortress plating: alternate panel colours, a strip of lights along the edge
 			grp.add_child(Models.mesh(mesh, Models.M.fort_a if c % 2 else Models.M.fort_b))
+			fort_hs[side] = hs
+			if FortDeco.enabled:
+				continue
 			var sgn := 1.0 if side else -1.0
 			for i in [1, 4, 7]:
 				var base: float = PH / 2.0 - hs[i] if side else -PH / 2.0 + hs[i]
@@ -551,6 +559,8 @@ func build_chunk(c: int) -> Node3D:
 	if not any:
 		grp.free()
 		return null
+	if FortDeco.enabled and fort_hs[0] != null and fort_hs[1] != null:
+		FortDeco.new().build(grp, c, fort_hs[1], fort_hs[0], wdef)
 	world.add_child(grp)
 	return grp
 
@@ -969,6 +979,14 @@ func sync_gate(g: Dictionary) -> void:
 	top.position = Vector3(X(g.x), Y((top_end + top0) / 2.0), 3)
 	bot.scale = Vector3(g.hw * 2.0, maxf(0.1, bot1 - bot_start), 12)
 	bot.position = Vector3(X(g.x), Y((bot_start + bot1) / 2.0), 3)
+	for k in ["top", "bot"]:
+		var pil: MeshInstance3D = u[k]
+		for d in ["_rib", "_strip"]:
+			(u[k + d] as Node3D).transform = pil.transform
+		var col: Node3D = u[k + "_collar"]
+		col.scale = Vector3(g.hw * 2.0 + 1.6, 2.6, 13.2)
+		col.position = Vector3(X(g.x), Y(top_end - 7.0 if k == "top" else bot_start + 7.0), 3)
+		col.visible = pil.scale.y > 10.0
 	(u.top_lip as Node3D).position = Vector3(X(g.x), Y(top_end - 1.0), 3)
 	(u.bot_lip as Node3D).position = Vector3(X(g.x), Y(bot_start + 1.0), 3)
 

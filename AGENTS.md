@@ -50,6 +50,7 @@ godot --headless --path . --script tests/audio_test.gd   # songs build on the ma
 godot --headless --path . --script tests/screen_test.gd  # crash report, safe graphics, wide and narrow screens
 godot --headless --path . --script tests/update_test.gd  # self-update: pack download, checks, APK offer
 godot --headless --path . --script tests/icon_test.gd    # project icon and Android launcher icon layers
+godot --headless --path . --script tests/fort_test.gd    # fortress decoration: draw calls, back wall, corridor kept clear
 ```
 
 Screenshots (needs a display, e.g. `xvfb-run -a`):
@@ -106,6 +107,12 @@ the pod model spins on its `spin` child around X, the root only turns it to face
   Towers and locked gates are gates (`add_gate` modes "tower" and "locked"); a locked gate
   opens once no `generator` with its key is alive. Terrain heights come from `Worlds.heights(world, wx)`; a level
   script entry with `y < 0` spawns on the corridor centre line, so waves fit inside tunnels.
+- Fortress decoration (Guillaume's pick, 2026-11-14: option "C", dressed plating plus a dark back
+  wall with lit windows) is `scripts/fort_deco.gd`, built with each fortress chunk and merged into
+  one mesh per material (at most 7 draw calls a chunk). Visual only: anything in front of z = -10
+  must stay inside the rock (`fort_test.gd` checks it; ramps are where things poke out). Each
+  world's themed panel and prop come from its `fdeco` field. Review shots of every world's
+  fortress: `xvfb-run -a godot --path . --rendering-method gl_compatibility --resolution 1600x720 --script tools/fort_shots.gd -- /tmp/forts`
 - Gates (`G.gates`) and breakable walls (`block` enemies) are solid: `in_wall()` covers rock and
   gate pillars. Free fliers (`FLYERS` in `main.gd`) are clamped inside the corridor.
 - Bosses of worlds 2-4 share one parts system (`spawn_gboss` / `update_gboss`): each part has
