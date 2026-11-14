@@ -123,7 +123,7 @@ func boss_at() -> float:
 	return wdef.boss_at
 
 
-## Difficulty grows a little with each world, and in Endless by two worlds' worth per lap.
+## Difficulty grows with each world, and in Endless by two worlds' worth per lap.
 func diff() -> float:
 	return float(G.get("world", 0)) + 2.0 * float(G.get("lap", 0))
 
@@ -681,8 +681,12 @@ func last_world() -> bool:
 	return G.world >= Worlds.LIST.size() - 1
 
 
+## Enemy bullet speed: +10% a world, capped so late Endless laps stay readable.
+const BM_MAX := 1.9
+
+
 func bm() -> float:
-	return minf(1.0 + 0.08 * diff(), 1.7)
+	return minf(1.0 + 0.1 * diff(), BM_MAX)
 
 
 func game_over() -> void:
@@ -776,7 +780,7 @@ func teardown() -> void:
 
 func E(type: String, x: float, y: float, o := {}) -> Dictionary:
 	var d: Array = DEF[type]
-	var e := {id = uid(), type = type, x = x, y = y, hw = d[0], hh = d[1], hp = ceilf(d[2] * (1.0 + 0.15 * diff())), score = d[3],
+	var e := {id = uid(), type = type, x = x, y = y, hw = d[0], hh = d[1], hp = ceilf(d[2] * (1.0 + 0.2 * diff())), score = d[3],
 		t = 0, flash = 0, dead = false, drop = "", side = 0}
 	e.merge(o, true)
 	match type:
@@ -1054,8 +1058,9 @@ func fire_shot(rapid: bool) -> void:
 		shot(nx, y - 2, 5.2, 0, m, d)
 		shot(nx, y + 2, 5.2, 0, m, d)
 	if P.laser >= 2:
-		shot(nx - 2, y, 4.6, -1.5, m, d)
-		shot(nx - 2, y, 4.6, 1.5, m, d)
+		# the angled pair never carries the heavy shot's double damage
+		shot(nx - 2, y, 4.6, -1.5, Models.M.shot, 1)
+		shot(nx - 2, y, 4.6, 1.5, Models.M.shot, 1)
 	if pod.state == "back":
 		shot(pod.x - 4, pod.y, -5, 0, Models.M.pod_shot, 1)
 	elif pod.state != "none":
@@ -1069,6 +1074,8 @@ func fire_shot(rapid: bool) -> void:
 const CHARGE_AT := [0, 50, 100, 160, 240]
 const CHARGE_MAX := 240
 const NOVA := 4
+## Ticks between two rams of the pod into an enemy (1 damage each): it shields more than it kills.
+const POD_RAM_CD := 8
 
 
 static func charge_lv(c: float) -> int:
@@ -1238,10 +1245,14 @@ func kill_player() -> void:
 	shake = 14.0
 	P.respawn = 110
 	P.charge = 0
-	P.laser = maxi(0, P.laser - 1)
-	if pod.state == "front" or pod.state == "back":
-		pod.state = "free"
-		pod.tx = pod.x
+	# Losing a ship costs the power-ups: lasers back to the single shot, one speed step, and
+	# the pod falls off as a P item drifting back - fly through it after respawning to get it back.
+	P.laser = 0
+	P.speed = maxi(0, P.speed - 1)
+	if pod.state != "none":
+		drop_item(clampf(pod.x, 20.0, W - 10.0), clampf(pod.y, 12.0, PH - 12.0), "P")
+		pod.state = "none"
+		Diag.once("pod lost")
 
 
 # ---------- boss ----------
@@ -2306,8 +2317,8 @@ func step() -> void:
 		if P.alive and ov(P, e):
 			kill_player()
 		if pod.state != "none" and pod.hit_cd <= 0 and ov(pod, e):
-			dmg_e(e, 2)
-			pod.hit_cd = 5
+			dmg_e(e, 1)
+			pod.hit_cd = POD_RAM_CD
 
 	# boss
 	if G.boss:
@@ -2317,8 +2328,8 @@ func step() -> void:
 				if P.alive and Vector2(P.x - p.x, P.y - p.y).length() < p.r + 2:
 					kill_player()
 				if pod.state != "none" and pod.hit_cd <= 0 and Vector2(pod.x - p.x, pod.y - p.y).length() < p.r + 3.5 and p.kind != "seg" and p.kind != "shield":
-					boss_damage(p, 2)
-					pod.hit_cd = 6
+					boss_damage(p, 1)
+					pod.hit_cd = POD_RAM_CD + 2
 		if G.clear_t:
 			G.boss = null
 

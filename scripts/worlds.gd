@@ -199,7 +199,33 @@ static func script(i: int) -> Array:
 			open_from = 140.0
 	_sections(s, i, open_from, w.boss_at - 260.0, rng)
 	s.sort_custom(func(a, b): return a.x < b.x)
-	return s
+	return _thin_drops(s)
+
+
+## Power-ups come at most once every `DROP_GAP` units (about 45 seconds), so the pod and
+## the upgraded lasers are earned over a world, not all in its first minute.
+const DROP_GAP := 1350.0
+
+
+## What the kept carriers drop, in order: the pod first (an L if you already have it).
+const DROP_ORDER := ["P", "L", "S", "L", "P", "S"]
+
+
+## Removes item carriers that come less than `DROP_GAP` after the previous one kept, and
+## gives the rest their drops in `DROP_ORDER`.
+static func _thin_drops(s: Array) -> Array:
+	var out: Array = []
+	var last := -INF
+	var n := 0
+	for e in s:
+		if e.type == "carrier":
+			if e.x - last < DROP_GAP:
+				continue
+			last = e.x
+			e.drop = DROP_ORDER[n % DROP_ORDER.size()]
+			n += 1
+		out.append(e)
+	return out
 
 
 ## Fills [x0, x1] with fortress rooms inside the world's fortress ranges and enemy groups from
@@ -214,7 +240,7 @@ static func _sections(s: Array, i: int, x0: float, x1: float, rng: RandomNumberG
 	while x < x1:
 		var fort := _fort_at(w, x)
 		var tun := in_tunnel(w, x)
-		if since_drop > 520.0:
+		if since_drop > 520.0:  # thinned to one per DROP_GAP by _thin_drops (keeps the layout)
 			_add(s, x, "carrier", {y = -1, drop = drops[nd % 3]})
 			nd += 1
 			since_drop = 0.0
