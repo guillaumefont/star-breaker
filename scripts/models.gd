@@ -194,30 +194,45 @@ static func _mirror_z(tris: Array) -> Array:
 	return Geo.xf(tris, Transform3D(Basis().scaled(Vector3(1, 1, -1)), Vector3.ZERO))
 
 
-## Pod: a drum that spins around its long axis (parallel to the ship), with three canted
-## blades, two collars and a glowing emitter at the front. The "spin" child turns; the
-## root only flips to face backwards when the pod docks behind the ship.
+## Pod: a round energy shield. Faceted armour plates with gaps float over a glowing core,
+## so the light shows through the seams (all opaque: no see-through materials). Two dark
+## hubs mark its axle, which runs nose to tail. The "spin" child turns around that axle;
+## the root only flips to face backwards when the pod docks behind the ship.
 static func pod() -> Node3D:
 	var g := Node3D.new()
 	var spin := Node3D.new()
 	g.add_child(spin)
-	spin.add_child(mesh(Geo.cached("podB", func(): return Geo.build_wound(Geo.loft([
-			[-3.4, 1.0, 1.0, 0], [-2.8, 1.7, 1.7, 0], [1.8, 1.9, 1.9, 0], [3.0, 1.4, 1.4, 0], [3.5, 0.7, 0.7, 0]], 8))), M.pod))
-	var collar := geo("podC", func(): return Geo.xf(Geo.cyl(2.25, 2.25, 0.7, 8), Geo.rot(Vector3.BACK, PI / 2)))
-	for x in [-2.2, 1.6]:
-		spin.add_child(mesh(collar, M.hull_dark, Vector3(x, 0, 0)))
-	var blade := geo("podF", func(): return Geo.prism([[-3.0, 1.4], [1.2, 1.4], [0.2, 3.7], [-2.4, 3.9]], 0.5))
-	for i in 3:
-		var arm := Node3D.new()
-		arm.rotation.x = i * TAU / 3.0
-		spin.add_child(arm)
-		var b := mesh(blade, M.pod_spike)
-		b.rotation.y = 0.3
-		arm.add_child(b)
-	var tip := mesh(geo("podT", func(): return Geo.ico(0.85, 0)), M.pod_shot, Vector3(3.6, 0, 0))
-	spin.add_child(tip)
+	spin.add_child(mesh(geo("podCore", func(): return Geo.ico(2.7, 1)), M.pod_shot))
+	spin.add_child(mesh(Geo.cached("podShell", func(): return Geo.build_wound(_plates(Geo.ico(3.5, 1), 0.74, 0.8))), M.pod))
+	var hub := geo("podH", func(): return Geo.xf(Geo.cyl(0.9, 1.3, 0.8, 6), Geo.rot(Vector3.BACK, -PI / 2)))
+	for side in [1.0, -1.0]:
+		var h := mesh(hub, M.hull_dark, Vector3(3.3 * side, 0, 0))
+		h.rotation.z = 0.0 if side > 0 else PI
+		spin.add_child(h)
 	g.set_meta("spin", spin)
 	return g
+
+
+## Turns each face of a closed shape into a separate thick plate: shrunk by `gap` around
+## its own centre and given a back face at `depth` of its distance from the origin.
+static func _plates(tris: Array, gap: float, depth: float) -> Array:
+	var out := []
+	for t in tris:
+		var c: Vector3 = (t[0] + t[1] + t[2]) / 3.0
+		var o := []
+		var i := []
+		for v in t:
+			var p: Vector3 = c + ((v as Vector3) - c) * gap
+			o.append(p)
+			i.append(p * depth)
+		var mid := (c + c * depth) * 0.5
+		out.append(Geo.orient([o[0], o[1], o[2]], mid))
+		out.append(Geo.orient([i[0], i[1], i[2]], mid))
+		for k in 3:
+			var n := (k + 1) % 3
+			out.append(Geo.orient([o[k], i[k], i[n]], mid))
+			out.append(Geo.orient([o[k], i[n], o[n]], mid))
+	return out
 
 
 static func drifter() -> Node3D:
