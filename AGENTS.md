@@ -42,7 +42,8 @@ the right side is a Pod strip on top, then Charge | Fire below.
 
 ```
 godot --headless --path . --import
-godot --headless --path . --script tests/play_test.gd    # full run: weapons, pod, enemies, boss, loop, game over
+godot --headless --path . --script tests/play_test.gd    # world 1: weapons, pod, enemies, gates, boss, world 2 starts, continue
+godot --headless --path . --script tests/campaign_test.gd # worlds 2-4: enemies, tunnels, gates, walls, bosses, ending
 godot --headless --path . --script tests/touch_test.gd   # floating stick and invisible touch zones
 godot --headless --path . --script tests/audio_test.gd   # songs build on the main thread, sound effects exist
 godot --headless --path . --script tests/screen_test.gd  # crash report, safe graphics, wide and narrow screens
@@ -68,6 +69,22 @@ the pod model spins on its `spin` child around X, the root only turns it to face
 - `boot.gd` must not use any game class (`Diag`, `Hud`, ...): touching one before the pack
   loads would keep the bundled version. Tests and tools load `scenes/main.tscn` directly.
 - PR APKs follow `pr/N/update.json`, then main once the preview is gone.
+
+## Campaign (worlds)
+
+- `scripts/worlds.gd` holds the four worlds: palette, terrain (cave noise plus tunnel sections),
+  level script, boss and songs. Terrain heights come from `Worlds.heights(world, wx)`; a level
+  script entry with `y < 0` spawns on the corridor centre line, so waves fit inside tunnels.
+- Gates (`G.gates`) and breakable walls (`block` enemies) are solid: `in_wall()` covers rock and
+  gate pillars. Free fliers (`FLYERS` in `main.gd`) are clamped inside the corridor.
+- Bosses of worlds 2-4 share one parts system (`spawn_gboss` / `update_gboss`): each part has
+  hp and a hit radius, `armour` parts deflect shots, the `core` part kills the boss. The Bloom
+  Mother keeps its own code.
+- Switching worlds only recolours shared materials and the environment (`apply_world`), so it
+  builds no new GPU pipelines. New world materials go in `Models.M`; `_warm_up()` draws every
+  entry of `Models.M` plus every model, so add new models there too.
+- `Sfx.music()` always stops the player before swapping songs and logs a `MUSIC` breadcrumb, so
+  a crash report shows which song change it died on.
 
 ## Gotchas
 

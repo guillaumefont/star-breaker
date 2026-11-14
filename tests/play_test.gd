@@ -1,6 +1,7 @@
 extends SceneTree
-## Headless playthrough: title -> stage 1 (every enemy type, items, pod, charge beam)
-## -> Bloom Mother -> stage clear -> loop 2 -> game over. Fails on any assertion.
+## Headless playthrough of world 1: title -> The Hollow Moon (every enemy type, items, pod,
+## charge beam, tunnel and gates) -> Bloom Mother -> world 2 starts -> game over, continue,
+## back to the title. Fails on any assertion. The rest of the campaign is in campaign_test.gd.
 
 var main: Node3D
 var fails := 0
@@ -112,6 +113,7 @@ func _initialize() -> void:
 	check(main.G.score > killed_score, "shooting enemies scores (%d)" % main.G.score)
 	check(main.G.warned and main.G.boss != null, "warning shows, then Bloom Mother arrives")
 	check(main.chunks.size() > 0, "cave terrain streams in")
+	check(Diag._seen.has("gate fixed") and Diag._seen.has("gate slide"), "the tunnel's gates appeared")
 
 	# boss: break petals, tentacle tip, then the eye
 	var B: Dictionary = main.G.boss
@@ -135,7 +137,7 @@ func _initialize() -> void:
 		t += 1
 		tick()
 	check(B.phase2 and B.core.open, "eye opens in phase two")
-	var loop_before: int = main.G.loop
+
 	t = 0
 	while t < 600 and not B.dying:
 		t += 1
@@ -146,12 +148,15 @@ func _initialize() -> void:
 		tick()
 	check(B.dying > 0, "the eye can be destroyed")
 	tick(160)
-	check(main.G.boss == null and main.G.clear_t > 0, "Stage Clear")
-	tick(340)
-	check(main.G.loop == loop_before + 1 and main.G.scroll < 40, "stage loops harder (loop %d)" % main.G.loop)
+	check(main.G.boss == null and main.G.clear_t > 0, "World Clear")
+	tick(200)
+	check(main.P.exiting and main.P.x > 60, "the ship flies off after the boss")
+	tick(140)
+	check(main.G.world == 1 and main.G.scroll < 40 and main.wdef.name == "Frost Rift", "world 2 starts (%s), no loop" % main.wdef.name)
+	check(main.G.score > 10000, "score carries over between worlds")
 	Input.action_release("fire")
 
-	# game over
+	# game over in world 2: continue from world 2, score reset
 	main.G.lives = 0
 	main.P.inv = 0
 	main.kill_player()
@@ -160,7 +165,14 @@ func _initialize() -> void:
 	tick(60, false)
 	press("start")
 	tick(1, false)
-	check(main.mode == "title", "game over returns to the title")
+	check(main.mode == "play" and main.G.world == 1 and main.G.score == 0, "Continue restarts world 2 with the score reset")
+	main.G.lives = 0
+	main.P.inv = 0
+	main.kill_player()
+	tick(190, false)
+	main.hud.title_pressed.emit()
+	tick(1, false)
+	check(main.mode == "title", "the Title button goes back to the title")
 	tick(1, false)
 	press("start")
 	tick(1, false)

@@ -5,7 +5,8 @@
 <sub>Latest build of `main`, updated on every merge.</sub>
 
 An original low poly 3D horizontal side-scrolling shooter, built with **Godot 4.7**.
-The moon is blooming: fly into the crystal cavern of *The Hollow Moon* and cut the Bloom Mother back.
+Fly through four worlds, each with its own enemies, tunnels, gates and boss, to the heart of a
+dying star.
 
 Every model, sound and song is generated from code (no imported meshes or audio files), and all
 names, art and levels are original.
@@ -39,9 +40,20 @@ There are no visible touch buttons: a faint map of the zones shows for the first
   ship (whichever side it touches), blocks bullets, rams enemies, and fires with you. Launch it
   across the screen and recall it at will.
 - **Items:** **P** pod, **L** laser (twin, then spread), **S** speed.
-- **Enemies:** spore drifters, cave turrets, hoppers, item carriers, armoured shell beasts.
-- **Boss, Bloom Mother:** destroy its four petals and its tentacle, then shoot the eye while it
-  is open. Clearing the stage loops it with faster, tougher enemies.
+- **Campaign:** four worlds played in a row, each ending with a boss, then the ending. Item
+  carriers drop P, L and S in every world.
+
+  | World | Terrain | Enemies | Boss |
+  | --- | --- | --- | --- |
+  | 1 · The Hollow Moon | crystal cave, then a winding tunnel with fixed and sliding gates | spore drifters, cave turrets, hoppers, shell beasts | **Bloom Mother:** break four petals and the tentacle, then shoot the eye while it is open |
+  | 2 · Frost Rift | low icy ceiling, two tunnels with sliding gates and ice walls to shoot through | crystal darts that stop, aim and lunge, falling icicles, spinning flakes, ice hulks | **Prism Warden:** two prisms fire aimed streams and shield the core; then the core spins spirals |
+  | 3 · Iron Foundry | long tunnels with wall pistons, furnace shutters that open and close, walls | drone squadrons, floor crawlers, gun emplacements | **Furnace Titan:** the furnace hatch opens on a cycle; destroy the two cannons to keep it open longer |
+  | 4 · Star Core | molten caves and the narrowest tunnels, every kind of gate | embers that arc up from below, homing seekers, gold sentinels, plus creatures from the earlier worlds | **Star Heart:** eight orbiting nodes shield it; then it chases you with spirals and seekers |
+
+- **Gates and walls:** gates are solid pillars with one opening (fixed, sliding up and down, or
+  shutters that open and close); breakable walls block the corridor until you shoot through.
+  Rock, gates and walls destroy the ship.
+- **Game over:** after world 1, *Continue* restarts the world you reached with the score reset.
 - Extra ship at 20,000 points, then every 30,000.
 
 ## Project layout
@@ -49,7 +61,8 @@ There are no visible touch buttons: a faint map of the zones shows for the first
 | Path | What it holds |
 | --- | --- |
 | `scenes/main.tscn` | Root scene (everything else is built in code) |
-| `scripts/main.gd` | Game loop: fixed 60 Hz logic on a 224 x 126 playfield, stage script, enemies, boss, scoring |
+| `scripts/main.gd` | Game loop: fixed 60 Hz logic on a 224 x 126 playfield, enemies, gates, bosses, scoring, world flow |
+| `scripts/worlds.gd` | The four worlds: palettes, terrain (caves and tunnels), level scripts, boss and song per world |
 | `scripts/models.gd` | Materials and low poly models |
 | `scripts/geo.gd` | Flat-shaded mesh builders (polyhedra, prisms, cones, terrain) |
 | `scripts/hud.gd` | Glass HUD, banners, title / pause / game over menus |
