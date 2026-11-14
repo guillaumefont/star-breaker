@@ -24,13 +24,13 @@ names, art and levels are original.
 | Action | Keyboard | Gamepad | Touch |
 | --- | --- | --- | --- |
 | Move | Arrows / WASD | Left stick, D-pad | Left half: floating stick that appears under your thumb and follows it |
-| Fire (tap: heavy shot, hold: rapid fire) | Z | A | **Fire** zone (bottom right, right column): tap, or hold for rapid fire |
-| Charge beam | X or C (hold, release) | B, X | Hold the **Charge** zone (bottom right, left column), release to fire |
-| Pod launch / recall | Space | Y, RB | Tap the **Pod** strip (top right) |
+| Fire (tap: heavy shot, hold: rapid fire) | Z | A | **Fire** zone (bottom right): tap, or hold for rapid fire |
+| Charge beam | X or C (hold, release) | B, X | Hold the **Charge** zone (middle right), release to fire |
+| Pod launch / recall | Space | Y, RB | Tap the **Pod** zone (top right) |
 | Pause | Esc / Enter | Start | Pause button, Android back |
 | Mute | M | | Speaker button |
 
-There are no visible touch buttons: a faint map of the zones shows for the first 8 seconds of a run.
+There are no visible touch buttons. The right side is one stack, bottom up: Fire, Charge, Pod. A faint map of the zones shows for the first 8 seconds of a run.
 
 ## Game
 
