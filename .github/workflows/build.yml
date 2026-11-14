@@ -94,6 +94,22 @@ jobs:
       - name: Import project
         run: $RUNNER_TEMP/godot --headless --path . --import
 
+      # Self-update (scripts/boot.gd): the app checks update.json at launch and downloads
+      # newer game packs (.pck) built for the same "shell". The shell id hashes everything a
+      # pack can't change (engine, project settings, Android manifest options, the updater
+      # itself); when it changes, the app offers the new APK instead. Computed from the
+      # committed files, before any stamping. PR builds follow their preview, then main.
+      - name: Stamp self-update settings
+        env:
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          shell=$( { echo "$GODOT_VERSION"; cat project.godot export_presets.cfg scripts/boot.gd scenes/boot.tscn; } | sha256sum | cut -c1-16)
+          base="https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/"
+          printf '\n[star_breaker]\n\nbuild=%s\nshell="%s"\nupdate_url="%s"\nupdate_fallback_url="%s"\n' \
+            "$GITHUB_RUN_NUMBER" "$shell" "$base${PR:+pr/$PR/}" "$base" >> project.godot
+          echo "SHELL_ID=$shell" >> "$GITHUB_ENV"
+          tail -6 project.godot
+
       # Build id (run number, PR, commit) shown on the title screen and in crash reports,
       # so a report tells which build it came from.
       - name: Stamp build id
@@ -130,6 +146,17 @@ jobs:
           $RUNNER_TEMP/godot --headless --path . --export-release Android "$OUT/android/star-breaker.apk"
           test -s "$OUT/android/star-breaker.apk"
 
+      # The game pack the installed app downloads to update itself, and its manifest.
+      - name: Export game pack for self-update
+        run: |
+          pck="$OUT/android/star-breaker.pck"
+          $RUNNER_TEMP/godot --headless --path . --export-pack Android "$pck"
+          test -s "$pck"
+          id=$(grep -m1 '^config/version=' project.godot | cut -d'"' -f2)
+          printf '{"build": %s, "id": "%s", "shell": "%s", "pck": "star-breaker.pck", "size": %s, "sha256": "%s", "apk": "star-breaker.apk"}\n' \
+            "$GITHUB_RUN_NUMBER" "$id" "$SHELL_ID" "$(stat -c%s "$pck")" "$(sha256sum "$pck" | cut -c1-64)" > "$OUT/android/update.json"
+          cat "$OUT/android/update.json"
+
       - uses: actions/upload-artifact@v4
         with:
           name: star-breaker-apk
@@ -142,7 +169,7 @@ jobs:
         run: |
           mkdir -p "$OUT/stage"
           cp -r "$OUT/web/." "$OUT/stage/"
-          cp "$OUT/android/star-breaker.apk" "$OUT/stage/"
+          cp "$OUT/android/star-breaker.apk" "$OUT/android/star-breaker.pck" "$OUT/android/update.json" "$OUT/stage/"
           # site root only: dead PR preview links land on 404.html, which opens the main build
           if [ "$DEST" = "." ]; then cp .github/pages/404.html "$OUT/stage/"; fi
           bash .github/publish-pages.sh "$OUT/stage" "$DEST" "Build of ${GITHUB_SHA::7} for $DEST"

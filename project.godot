@@ -5,7 +5,7 @@ config_version=5
 
 config/name="Star Breaker"
 config/description="Original low poly side-scrolling shooter: cut back the blooming moon."
-run/main_scene="res://scenes/main.tscn"
+run/main_scene="res://scenes/boot.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
 boot_splash/bg_color=Color(0.0196, 0.0157, 0.051, 1)
 boot_splash/show_image=false

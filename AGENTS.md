@@ -46,10 +46,24 @@ godot --headless --path . --script tests/play_test.gd    # full run: weapons, po
 godot --headless --path . --script tests/touch_test.gd   # floating stick and invisible touch zones
 godot --headless --path . --script tests/audio_test.gd   # songs build on the main thread, sound effects exist
 godot --headless --path . --script tests/screen_test.gd  # crash report, safe graphics, wide and narrow screens
+godot --headless --path . --script tests/update_test.gd  # self-update: pack download, checks, APK offer
 ```
 
 Screenshots (needs a display, e.g. `xvfb-run -a`):
 `godot --path . --rendering-method gl_compatibility --script tools/screenshots.gd -- /tmp/shots`
+
+## Self-update (Android)
+
+- The main scene is `scenes/boot.tscn` (`scripts/boot.gd`): at launch it fetches `update.json`
+  from Pages and, if a newer build was made for the same **shell**, downloads
+  `star-breaker.pck` (the whole game, ~200 KB), checks its SHA-256 and loads it over the bundled
+  game with `ProjectSettings.load_resource_pack()`. No reinstall needed.
+- The shell id (set by CI) hashes what a pack can't change: Godot version, `project.godot`,
+  `export_presets.cfg` and the updater (`boot.gd`, `boot.tscn`). Editing any of those makes
+  the app offer a new APK download instead, so avoid needless changes to them.
+- `boot.gd` must not use any game class (`Diag`, `Hud`, ...): touching one before the pack
+  loads would keep the bundled version. Tests and tools load `scenes/main.tscn` directly.
+- PR APKs follow `pr/N/update.json`, then main once the preview is gone.
 
 ## Gotchas
 

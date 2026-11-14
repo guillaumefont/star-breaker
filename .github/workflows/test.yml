@@ -26,3 +26,5 @@ jobs:
         run: ./godot --headless --path . --script tests/touch_test.gd
       - name: Crash report, safe graphics and screen fill
         run: ./godot --headless --path . --script tests/screen_test.gd
+      - name: Self-update (game pack download, checks, APK offer)
+        run: ./godot --headless --path . --script tests/update_test.gd
