@@ -44,6 +44,7 @@ the right side is one vertical stack, bottom up: Fire, Charge, Pod (2026-11-14).
 godot --headless --path . --import
 godot --headless --path . --script tests/play_test.gd    # world 1: weapons, pod, enemies, gates, boss, world 2 starts, continue
 godot --headless --path . --script tests/campaign_test.gd # worlds 2-4: enemies, tunnels, gates, walls, bosses, ending
+godot --headless --path . --script tests/menu_test.gd     # main menu, Normal and Endless modes, bests, quit to menu
 godot --headless --path . --script tests/touch_test.gd   # floating stick and invisible touch zones
 godot --headless --path . --script tests/audio_test.gd   # songs build on the main thread, sound effects exist
 godot --headless --path . --script tests/screen_test.gd  # crash report, safe graphics, wide and narrow screens
@@ -81,6 +82,17 @@ the pod model spins on its `spin` child around X, the root only turns it to face
 - `boot.gd` must not use any game class (`Diag`, `Hud`, ...): touching one before the pack
   loads would keep the bundled version. Tests and tools load `scenes/main.tscn` directly.
 - PR APKs follow `pr/N/update.json`, then main once the preview is gone.
+
+## Main menu and modes
+
+- The title screen is the main menu: two mode cards, **Normal** (the campaign, ends on the
+  ending screen) and **Endless** (`G.mode == "endless"`: after world 4 it loops to world 1
+  with `G.lap += 1`, never shows the ending). `diff()` adds 2 per lap; `bm()` is capped at 1.7.
+- Each mode has its own best (`bests`, saved as `best` and `best_endless`); `hiscore` mirrors
+  the mode being played. The last mode played is saved and preselected.
+- Keyboard/gamepad move the selection (`hud.select_mode`), Enter/Fire plays it; on touch only a
+  tap on a card starts (`hud.card_at`), other menus still take a tap anywhere.
+- Menu screenshots: `xvfb-run -a godot --path . --rendering-method gl_compatibility --resolution 2400x1080 --script tools/menu_shots.gd -- /tmp/menu`
 
 ## Campaign (worlds)
 

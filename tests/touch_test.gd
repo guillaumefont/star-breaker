@@ -1,5 +1,5 @@
 extends SceneTree
-## Touch controls: tap anywhere starts, floating stick on the left moves the ship,
+## Touch controls: tapping a mode card starts, floating stick on the left moves the ship,
 ## invisible zones on the right fire, rapid fire, charge and launch the pod.
 
 var main: Node3D
@@ -48,7 +48,13 @@ func _initialize() -> void:
 	touch(0, vs * 0.5, false)
 	check(tp.enabled, "first touch switches to touch controls")
 	tick()
-	check(main.mode == "play", "tapping the title starts a run")
+	check(main.mode == "title", "a tap beside the mode cards doesn't start a run")
+	var card: Rect2 = main.hud._cards.normal.button.get_global_rect()
+	check(main.hud.card_at(card.get_center()) == "normal", "the Normal card is under its own centre")
+	touch(0, card.get_center(), true)
+	touch(0, card.get_center(), false)
+	tick()
+	check(main.mode == "play" and not main.endless(), "tapping the Normal card starts a campaign run")
 	tick(80)
 
 	var x0: float = main.P.x

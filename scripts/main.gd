@@ -1,8 +1,9 @@
 extends Node3D
 ## Star Breaker: game loop. Logic runs at a fixed 60 ticks per second in "stage units"
 ## (a 224 x 126 playfield, y pointing down) and is mirrored onto low poly 3D models.
-## A run is a campaign through the four worlds in `Worlds.LIST`, each ending with a boss;
-## the last boss leads to the ending.
+## Two modes, picked on the main menu: Normal is a campaign through the four worlds in
+## `Worlds.LIST`, each ending with a boss, and the last boss leads to the ending. Endless
+## loops the four worlds forever, every lap tougher, with its own best score.
 
 const W := 224.0
 const PH := 126.0
@@ -35,7 +36,12 @@ var paused := false
 var G: Dictionary = {}
 var P: Dictionary = {}
 var pod: Dictionary = {}
+## Best score of the mode being played (or last chosen on the menu).
 var hiscore := 0
+## Best score per mode, saved; `hiscore` mirrors the current mode's entry.
+var bests := {normal = 0, endless = 0}
+## Mode chosen on the menu ("normal" or "endless"); kept for the next launch.
+var play_mode := "normal"
 var tt := 0
 var shake := 0.0
 var muzzle := 0
@@ -73,6 +79,7 @@ var _grad: Gradient
 var _rim: DirectionalLight3D
 var _star_mats: Array = []
 var _want_title := false
+var _want_mode := ""
 var _ring: Node3D
 
 
@@ -114,9 +121,13 @@ func boss_at() -> float:
 	return wdef.boss_at
 
 
-## Difficulty grows a little with each world.
+## Difficulty grows a little with each world, and in Endless by two worlds' worth per lap.
 func diff() -> float:
-	return float(G.get("world", 0))
+	return float(G.get("world", 0)) + 2.0 * float(G.get("lap", 0))
+
+
+func endless() -> bool:
+	return G.get("mode", "") == "endless"
 
 
 func uid() -> int:
@@ -150,10 +161,17 @@ func _ready() -> void:
 	hud.mute_pressed.connect(func(): latch["mute"] = true)
 	hud.safe_toggled.connect(apply_safe)
 	hud.title_pressed.connect(func(): _want_title = true)
+	hud.mode_chosen.connect(func(m: String): _want_mode = m)
 	var cfg := ConfigFile.new()
 	if cfg.load(SAVE_PATH) == OK:
-		hiscore = int(cfg.get_value("game", "best", 0))
+		bests.normal = int(cfg.get_value("game", "best", 0))
+		bests.endless = int(cfg.get_value("game", "best_endless", 0))
 		muted = bool(cfg.get_value("game", "muted", false))
+		var lm := str(cfg.get_value("game", "mode", "normal"))
+		play_mode = lm if bests.has(lm) else "normal"
+	hiscore = bests[play_mode]
+	hud.set_bests(fmt(bests.normal), fmt(bests.endless))
+	hud.select_mode(play_mode)
 	audio.set_muted(muted)
 	hud.set_muted_icon(muted)
 	hud.set_menu("title")
@@ -576,12 +594,15 @@ func _notification(what: int) -> void:
 
 # ---------- game flow ----------
 
-func new_game(world := 0) -> void:
-	G = {score = 0, lives = 2, world = world, next_extend = 20000}
+func new_game(world := 0, m := "") -> void:
+	if m != "":
+		play_mode = m
+	hiscore = bests[play_mode]
+	G = {score = 0, lives = 2, world = world, next_extend = 20000, mode = play_mode, lap = 0}
 	P = {x = -10.0, y = 63.0, hw = 2.5, hh = 1.5, alive = true, inv = 0, entering = true, exiting = false, charge = 0, charge_held = false,
 		rapid_cd = 0, fire_hold = 0, laser = 0, speed = 0, respawn = 0, vy = 0.0, ready_lv = 0}
 	pod = {state = "none", x = 0.0, y = 0.0, hw = 3.6, hh = 3.6, tx = 0.0, grab_cd = 0, hit_cd = 0}
-	Diag.note("PLAY", "world %d" % (world + 1))
+	Diag.note("PLAY", "%s world %d" % [play_mode, world + 1])
 	mode = "play"
 	paused = false
 	hud.set_menu("play")
@@ -609,7 +630,7 @@ func start_stage() -> void:
 		pod.state = "front"
 		pod.x = P.x + 11
 		pod.y = P.y
-	show_banner(wdef.name, wdef.sub, 170)
+	show_banner(wdef.name, ("Endless · Lap %d · %s" % [G.lap + 1, wdef.sub]) if endless() else wdef.sub, 170)
 	audio.music(wdef.song)
 	hud.fade(false)
 
@@ -619,7 +640,7 @@ func last_world() -> bool:
 
 
 func bm() -> float:
-	return 1.0 + 0.08 * diff()
+	return minf(1.0 + 0.08 * diff(), 1.7)
 
 
 func game_over() -> void:
@@ -628,7 +649,7 @@ func game_over() -> void:
 	G.over_t = 0
 	audio.music("")
 	_save()
-	hud.set_over(fmt(G.score), fmt(hiscore), G.world)
+	hud.set_over(fmt(G.score), fmt(hiscore), G.world, G.lap if endless() else -1)
 	hud.set_menu("over")
 	hud.touch.playing = false
 	hud.touch.reset()
@@ -652,10 +673,25 @@ func ending() -> void:
 
 
 func _save() -> void:
+	bests[play_mode] = maxi(bests[play_mode], hiscore)
+	hud.set_bests(fmt(bests.normal), fmt(bests.endless))
 	var cfg := ConfigFile.new()
-	cfg.set_value("game", "best", hiscore)
+	cfg.set_value("game", "best", bests.normal)
+	cfg.set_value("game", "best_endless", bests.endless)
+	cfg.set_value("game", "mode", play_mode)
 	cfg.set_value("game", "muted", muted)
 	cfg.save(SAVE_PATH)
+
+
+## Back to the main menu (after a run, the ending, or quitting from pause).
+func to_menu() -> void:
+	mode = "title"
+	apply_world(0)
+	audio.music("")
+	hud.select_mode(play_mode)
+	hud.set_menu("title")
+	hud.touch.playing = false
+	hud.touch.reset()
 
 
 func set_paused(v: bool) -> void:
@@ -1148,7 +1184,7 @@ func update_boss() -> void:
 			remove_boss()
 			G.clear_t = 1
 			add_score(G.lives * 2000)
-			show_banner("Final Clear" if last_world() else "World Clear", wdef.clear, 280)
+			show_banner(("Lap Clear" if endless() else "Final Clear") if last_world() else "World Clear", wdef.clear, 280)
 		return
 	if B.kind != "bloom":
 		update_gboss(B)
@@ -2013,10 +2049,17 @@ func step() -> void:
 		if G.clear_t == 280:
 			hud.fade(true)
 		if G.clear_t > 330:
-			if last_world():
+			if last_world() and not endless():
 				ending()
 				return
-			G.world += 1
+			if last_world():
+				# Endless: back to the first world, one lap tougher
+				G.lap += 1
+				G.world = 0
+				Diag.note("LAP", str(G.lap + 1))
+				_save()
+			else:
+				G.world += 1
 			start_stage()
 	# cull
 	for k in ["pb", "eb", "enemies", "items", "gates"]:
@@ -2039,21 +2082,28 @@ func update() -> void:
 		_save()
 	match mode:
 		"title":
-			if hit("start") or hit("fire"):
-				new_game()
+			# main menu: left/right (or up/down) picks a mode, Enter/Fire plays it; a tap or
+			# click on a mode card plays that one
+			if hit("left") or hit("up"):
+				hud.select_mode("normal")
+			if hit("right") or hit("down"):
+				hud.select_mode("endless")
+			if _want_mode != "":
+				hud.select_mode(_want_mode)
+				new_game(0, _want_mode)
+			elif hit("start") or hit("fire"):
+				new_game(0, hud.selected_mode)
 		"over":
-			# Play/Fire continues from the world reached (score back to 0); the Title button
-			# (or a game over in world 1) goes back to the title screen.
+			# Play/Fire continues from the world reached in Normal (score back to 0), or
+			# restarts in Endless and in world 1; the Menu button goes back to the menu.
 			G.over_t += 1
 			update_fx()
 			if G.over_t > 50 and (_want_title or hit("start") or hit("fire")):
-				var w: int = G.world
-				var to_title := _want_title or w == 0
+				var w: int = 0 if endless() else G.world
+				var to_title := _want_title
 				teardown()
 				if to_title:
-					mode = "title"
-					apply_world(0)
-					hud.set_menu("title")
+					to_menu()
 				else:
 					Diag.note("CONTINUE", "world %d" % (w + 1))
 					new_game(w)
@@ -2061,13 +2111,20 @@ func update() -> void:
 			G.over_t += 1
 			update_fx()
 			if G.over_t > 90 and (_want_title or hit("start") or hit("fire")):
-				mode = "title"
 				G = {}
-				apply_world(0)
-				audio.music("")
-				hud.set_menu("title")
+				to_menu()
 		"play":
-			if hit("start"):
+			if paused and _want_title:
+				# Menu button on the pause screen: abandon the run
+				Diag.note("QUIT_RUN")
+				_save()
+				audio.set_paused(false)
+				paused = false
+				teardown()
+				to_menu()
+				_want_title = false
+				return
+			elif hit("start"):
 				set_paused(not paused)
 			if not paused:
 				step()
@@ -2083,6 +2140,7 @@ func update() -> void:
 					if hint_t == 0:
 						hud.show_hints(false)
 	_want_title = false
+	_want_mode = ""
 	if shake > 0.0:
 		shake *= 0.85
 

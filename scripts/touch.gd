@@ -105,7 +105,13 @@ func _input(event: InputEvent) -> void:
 			if hud.blocks_touch(e.position):
 				return
 			if not playing:
-				latched["start"] = true
+				# main menu: only a tap on a mode card starts a run; other menus take any tap
+				var m := hud.card_at(e.position)
+				if m != "":
+					hud.select_mode(m)
+					hud.mode_chosen.emit(m)
+				elif not hud.title_scr.visible:
+					latched["start"] = true
 				return
 			var z := zone_at(e.position.x / vs.x, e.position.y / vs.y)
 			_zone_of[e.index] = z
