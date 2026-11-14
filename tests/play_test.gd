@@ -35,6 +35,7 @@ func _initialize() -> void:
 	await process_frame
 	print("Star Breaker play test")
 	check(main.mode == "title", "starts on the title screen")
+	main.hud.select_mode("normal")
 	press("start")
 	tick()
 	check(main.mode == "play", "Play starts a run")

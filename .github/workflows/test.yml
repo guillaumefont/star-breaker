@@ -22,6 +22,8 @@ jobs:
         run: ./godot --headless --path . --script tests/play_test.gd
       - name: Campaign (worlds 2-4, tunnels, gates, walls, bosses, ending)
         run: ./godot --headless --path . --script tests/campaign_test.gd
+      - name: Main menu and game modes (Normal, Endless, bests, quit to menu)
+        run: ./godot --headless --path . --script tests/menu_test.gd
       - name: Songs build on the main thread (Android start-up crash)
         run: ./godot --headless --path . --script tests/audio_test.gd
       - name: Touch zones and floating stick

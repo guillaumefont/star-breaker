@@ -6,6 +6,8 @@ signal start_pressed
 signal mute_pressed
 signal safe_toggled
 signal title_pressed
+## A mode card on the main menu was tapped or clicked ("normal" or "endless").
+signal mode_chosen(mode: String)
 
 const C_TEXT := Color("f4f2ff")
 const C_MUTED := Color("bdb6e0")
@@ -44,7 +46,9 @@ var _btn_pause: Button
 var title_scr: Control
 var over_scr: Control
 var pause_scr: Control
-var _title_hi: Label
+## Main menu mode cards: mode -> {button, best label, colour}.
+var _cards := {}
+var selected_mode := "normal"
 var _over_score: Label
 var _over_best: Label
 var _key_rows: Array = []
@@ -61,6 +65,7 @@ var _fade_tw: Tween
 var _over_cta: Button
 var _over_note: Label
 var _over_title: Button
+var _over_reached: Label
 var end_scr: Control
 var _end_score: Label
 var _end_best: Label
@@ -537,38 +542,138 @@ func _center_col(m: Control, sep := 16) -> VBoxContainer:
 
 func _build_title() -> Control:
 	var m := _menu_bg(self)
-	var v := _center_col(m, 16)
+	var v := _center_col(m, 22)
+	v.offset_bottom = -54
 	var logo := _vbox(0)
 	v.add_child(logo)
-	var sub := _label("FOUR WORLDS · ONE STAR", 21, 700, C_TEXT, 8.0)
+	var sub := _label("FOUR WORLDS · ONE STAR", 18, 700, C_TEXT, 8.0)
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	logo.add_child(sub)
-	var star := _label("STAR", 84, 800)
+	var star := _label("STAR", 72, 800)
 	star.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	star.add_theme_constant_override("line_spacing", -18)
 	logo.add_child(star)
-	var brk := _grad_label("BREAKER", 84, 800, 0, [C_LANCE, C_VIOLET, C_SPORE])
-	var st := _stack(_halo("BREAKER", 84, 800, C_VIOLET), brk)
+	var brk := _grad_label("BREAKER", 72, 800, 0, [C_LANCE, C_VIOLET, C_SPORE])
+	var st := _stack(_halo("BREAKER", 72, 800, C_VIOLET), brk)
 	st.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	logo.add_child(st)
-	var tag := _label("Break through moon, ice and iron to the heart of a dying star.", 17, 500, C_MUTED)
-	tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	v.add_child(tag)
-	v.add_child(_cta("Play"))
-	var s := _stat("Best")
-	s[0].size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	v.add_child(s[0])
-	_title_hi = s[1]
-	var kr := _keys([["WASD", "Move"], ["Z", "Fire"], ["X", "Charge"], ["Space", "Pod"], ["Esc", "Pause"]], 900)
+	var cards := _hbox(22)
+	v.add_child(cards)
+	cards.add_child(_mode_card("normal", "Normal", "Campaign", "Break through four worlds\nto the heart of the star.", C_LANCE))
+	cards.add_child(_mode_card("endless", "Endless", "No end", "The worlds loop forever,\ntougher every lap.", C_SPORE))
+	select_mode(selected_mode)
+	var kr := _keys([["◀ ▶", "Choose"], ["Enter", "Play"], ["WASD", "Move"], ["Z", "Fire"], ["X", "Charge"], ["Space", "Pod"], ["Esc", "Pause"]], 1000)
 	kr.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(kr)
 	_key_rows.append(kr)
-	var tr := _keys([["Left", "Move"], ["Right, bottom up", "Fire · Charge · Pod"]], 900)
+	var tr := _keys([["Tap", "A mode to play"], ["Left", "Move"], ["Right, bottom up", "Fire · Charge · Pod"]], 1000)
 	tr.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(tr)
 	_touch_rows.append(tr)
 	_build_device_row(m)
 	return m
+
+
+## A big glass card on the main menu that starts its mode when tapped or clicked.
+func _mode_card(key: String, title: String, tag: String, desc: String, col: Color) -> Button:
+	var b := Button.new()
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(340, 0)
+	b.mouse_filter = Control.MOUSE_FILTER_STOP
+	b.pressed.connect(func(): mode_chosen.emit(key))
+	b.mouse_entered.connect(func(): select_mode(key))
+	var pad := MarginContainer.new()
+	pad.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for side in ["left", "right"]:
+		pad.add_theme_constant_override("margin_" + side, 26)
+	pad.add_theme_constant_override("margin_top", 18)
+	pad.add_theme_constant_override("margin_bottom", 18)
+	b.add_child(pad)
+	var v := _vbox(6)
+	v.alignment = BoxContainer.ALIGNMENT_BEGIN
+	pad.add_child(v)
+	var top := _hbox(10)
+	top.alignment = BoxContainer.ALIGNMENT_BEGIN
+	v.add_child(top)
+	var icon := Control.new()
+	icon.custom_minimum_size = Vector2(44, 28)
+	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon.draw.connect(func(): _draw_mode_icon(icon, key, col))
+	top.add_child(icon)
+	var tv := _vbox(-4)
+	tv.alignment = BoxContainer.ALIGNMENT_BEGIN
+	top.add_child(tv)
+	tv.add_child(_caps(tag, 11, col))
+	tv.add_child(_label(title.to_upper(), 34, 800, C_TEXT, 3.0))
+	var d := _label(desc, 15, 500, C_MUTED)
+	v.add_child(d)
+	var br := _hbox(8)
+	br.alignment = BoxContainer.ALIGNMENT_BEGIN
+	v.add_child(br)
+	var bl := _caps("Best", 11)
+	bl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	br.add_child(bl)
+	var best := _label("0", 20, 800, C_TEXT)
+	br.add_child(best)
+	# the card's height follows its content
+	pad.minimum_size_changed.connect(func(): b.custom_minimum_size.y = pad.get_combined_minimum_size().y)
+	b.custom_minimum_size.y = pad.get_combined_minimum_size().y
+	_cards[key] = {button = b, best = best, col = col}
+	return b
+
+
+func _draw_mode_icon(c: Control, key: String, col: Color) -> void:
+	var h := c.size.y / 2.0
+	if key == "normal":
+		# four worlds on a path ending at the star
+		var pts := [Vector2(3, h + 6), Vector2(13, h - 2), Vector2(23, h + 4), Vector2(33, h - 5)]
+		for i in 3:
+			c.draw_line(pts[i], pts[i + 1], Color(col, 0.5), 2.0, true)
+		for i in 3:
+			c.draw_circle(pts[i], 3.5, col)
+		c.draw_circle(pts[3], 7.0, Color(col, 0.25))
+		c.draw_circle(pts[3], 4.5, Color.WHITE)
+	else:
+		# infinity loop
+		var pts := PackedVector2Array()
+		for i in 49:
+			var t := TAU * i / 48.0
+			var k := 1.0 + sin(t) * sin(t)
+			pts.append(Vector2(22 + 17 * cos(t) / k, h + 17 * sin(t) * cos(t) / k))
+		c.draw_polyline(pts, Color(col, 0.3), 7.0, true)
+		c.draw_polyline(pts, col, 3.0, true)
+
+
+## Highlights the mode card the keyboard or gamepad will start.
+func select_mode(key: String) -> void:
+	if not _cards.has(key):
+		return
+	selected_mode = key
+	for k in _cards:
+		var c: Dictionary = _cards[k]
+		var on: bool = k == key
+		for stn in ["normal", "hover", "pressed", "focus"]:
+			var sb := _glass_style(24, Vector2.ZERO)
+			if on:
+				sb.bg_color = Color(c.col.darkened(0.72), 0.82)
+				sb.border_color = c.col
+				sb.set_border_width_all(2)
+				sb.shadow_color = Color(c.col, 0.35)
+				sb.shadow_size = 22
+				sb.shadow_offset = Vector2(0, 6)
+			if stn == "pressed":
+				sb.bg_color = sb.bg_color.lightened(0.12)
+			c.button.add_theme_stylebox_override(stn, sb)
+		c.button.modulate = Color.WHITE if on else Color(1, 1, 1, 0.78)
+
+
+func set_bests(normal: String, endless: String) -> void:
+	if _cards.is_empty():
+		return
+	set_text(_cards.normal.best, "best_n", normal)
+	set_text(_cards.endless.best, "best_e", endless)
 
 
 ## Bottom of the title screen: graphics mode toggle and, after an unexpected close, what
@@ -586,9 +691,10 @@ func _build_device_row(m: Control) -> void:
 	_crash = _glass(16, Vector2(16, 10))
 	_crash.custom_minimum_size.x = 760
 	_crash.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_crash.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	var cv := _vbox(6)
 	_crash.add_child(cv)
-	cv.add_child(_caps("The game closed unexpectedly last time · safe graphics switched on, tap Play to try again", 11, C_AMBER))
+	cv.add_child(_caps("The game closed unexpectedly last time · safe graphics switched on, pick a mode to try again", 11, C_AMBER))
 	_crash_txt = _label("", 12, 500, C_MUTED)
 	_crash_txt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_crash_txt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -673,12 +779,15 @@ func _build_over() -> Control:
 	var b := _stat("Best")
 	row.add_child(b[0])
 	_over_best = b[1]
+	_over_reached = _caps("", 12, C_SPORE)
+	_over_reached.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(_over_reached)
 	_over_cta = _cta("Play again")
 	v.add_child(_over_cta)
 	_over_note = _caps("Continuing starts the world again with the score reset", 11)
 	_over_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(_over_note)
-	_over_title = _small_button("Title")
+	_over_title = _small_button("Menu")
 	_over_title.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_over_title.pressed.connect(func(): title_pressed.emit())
 	v.add_child(_over_title)
@@ -706,7 +815,7 @@ func _build_end() -> Control:
 	var b := _stat("Best")
 	row.add_child(b[0])
 	_end_best = b[1]
-	v.add_child(_cta("Back to title"))
+	v.add_child(_cta("Back to menu"))
 	return m
 
 
@@ -717,6 +826,10 @@ func _build_pause() -> Control:
 	h.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(h)
 	v.add_child(_cta("Resume"))
+	var quit := _small_button("Quit to menu")
+	quit.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	quit.pressed.connect(func(): title_pressed.emit())
+	v.add_child(quit)
 	var kr := _keys([["Z", "Fire (hold for rapid)"], ["X", "Charge"], ["Space", "Pod"], ["M", "Mute"]], 900)
 	kr.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(kr)
@@ -728,6 +841,10 @@ func _build_pause() -> Control:
 
 func set_touch_mode(on: bool) -> void:
 	touch.enabled = on
+	# on touch screens the touch layer starts modes itself (card_at), so the cards
+	# don't also take the emulated mouse click
+	for k in _cards:
+		_cards[k].button.mouse_filter = Control.MOUSE_FILTER_IGNORE if on else Control.MOUSE_FILTER_STOP
 	for r in _key_rows:
 		r.visible = not on
 	for r in _touch_rows:
@@ -774,7 +891,6 @@ func update_hud(score: String, hi: String, laser: int, speed: int, n_lives: int,
 
 func set_hi(hi: String) -> void:
 	set_text(_hi, "hi", hi)
-	set_text(_title_hi, "thi", hi)
 
 
 func show_boss(on: bool, name := "") -> void:
@@ -788,14 +904,17 @@ func set_boss(pct: float) -> void:
 	set_text(_boss_pct, "bpct", "%d%%" % ceili(pct))
 
 
-## `world` is the index of the world the run ended in: past world 1 the main button
-## continues from there.
-func set_over(score: String, best: String, world := 0) -> void:
+## `world` is the index of the world the run ended in: in Normal, past world 1 the main
+## button continues from there. `lap` is the Endless lap reached (-1 in Normal), where the
+## main button always starts a new run.
+func set_over(score: String, best: String, world := 0, lap := -1) -> void:
 	_over_score.text = score
 	_over_best.text = best
-	_over_cta.text = ("Continue · World %d" % (world + 1) if world > 0 else "Play again").to_upper()
-	_over_note.visible = world > 0
-	_over_title.visible = world > 0
+	var cont := world > 0 and lap < 0
+	_over_cta.text = ("Continue · World %d" % (world + 1) if cont else "Play again").to_upper()
+	_over_note.visible = cont
+	_over_reached.text = ("Endless · reached lap %d, world %d" % [lap + 1, world + 1]).to_upper() if lap >= 0 else ""
+	_over_reached.visible = lap >= 0
 
 
 func set_ending(score: String, best: String) -> void:
@@ -858,6 +977,16 @@ func show_hints(on: bool) -> void:
 	var tw := create_tween()
 	tw.tween_property(_hints, "modulate:a", 1.0 if on else 0.0, 0.8 if not on else 0.2)
 	touch.show_zones(on)
+
+
+## The mode card under a touch at `p` on the main menu, or "".
+func card_at(p: Vector2) -> String:
+	if not title_scr.visible:
+		return ""
+	for k in _cards:
+		if _cards[k].button.get_global_rect().has_point(p):
+			return k
+	return ""
 
 
 ## True when a touch at `p` lands on one of the HUD buttons (so it must not fire the ship).
