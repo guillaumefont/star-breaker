@@ -51,6 +51,10 @@ godot --headless --path . --script tests/update_test.gd  # self-update: pack dow
 
 Screenshots (needs a display, e.g. `xvfb-run -a`):
 `godot --path . --rendering-method gl_compatibility --script tools/screenshots.gd -- /tmp/shots`
+Close-ups of the player ship and pod (side, three-quarter, top, rear, pod launched):
+`godot --path . --rendering-method gl_compatibility --script tools/ship_shots.gd -- /tmp/ship`
+Hulls are lofted with `Geo.loft()` (cross-sections along X) and baked with `Geo.build_wound()`;
+the pod model spins on its `spin` child around X, the root only turns it to face backwards.
 
 ## Self-update (Android)
 

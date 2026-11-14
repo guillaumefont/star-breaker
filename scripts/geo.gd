@@ -77,6 +77,69 @@ static func build_facing(tris: Array, dir: Vector3) -> ArrayMesh:
 	return _mesh(verts, norms)
 
 
+## Bakes triangles that are already wound outwards (see `orient()`), e.g. from `loft()`.
+static func build_wound(tris: Array) -> ArrayMesh:
+	var verts := PackedVector3Array()
+	var norms := PackedVector3Array()
+	for t in tris:
+		var a: Vector3 = t[0]
+		var b: Vector3 = t[1]
+		var d: Vector3 = t[2]
+		var nrm := (b - a).cross(d - a)
+		if nrm.length_squared() < 1e-10:
+			continue
+		verts.append(a)
+		verts.append(d)
+		verts.append(b)
+		nrm = nrm.normalized()
+		for i in 3:
+			norms.append(nrm)
+	return _mesh(verts, norms)
+
+
+## Returns `tri` wound so that its normal points away from `ref`.
+static func orient(tri: Array, ref: Vector3) -> Array:
+	var a: Vector3 = tri[0]
+	var b: Vector3 = tri[1]
+	var c: Vector3 = tri[2]
+	if (b - a).cross(c - a).dot((a + b + c) / 3.0 - ref) < 0.0:
+		return [a, c, b]
+	return [a, b, c]
+
+
+## Hull lofted along X through elliptical cross-sections, capped at both ends.
+## Each section is [x, half height, half depth, centre y]; sections must be ordered by x.
+## The first ring vertex sits half a step off the top so the hull has a flat spine.
+static func loft(secs: Array, seg: int) -> Array:
+	var rings := []
+	for s in secs:
+		var r := []
+		for i in seg:
+			var a := (i + 0.5) / seg * TAU
+			r.append(Vector3(s[0], s[3] + s[1] * cos(a), s[2] * sin(a)))
+		rings.append(r)
+	var tris := []
+	for k in secs.size() - 1:
+		var s0: Array = secs[k]
+		var s1: Array = secs[k + 1]
+		var m := Vector3((s0[0] + s1[0]) * 0.5, (s0[3] + s1[3]) * 0.5, 0)
+		var r0: Array = rings[k]
+		var r1: Array = rings[k + 1]
+		for i in seg:
+			var j := (i + 1) % seg
+			tris.append(orient([r0[i], r1[i], r1[j]], m))
+			tris.append(orient([r0[i], r1[j], r0[j]], m))
+	for e in [[0, 1.0], [secs.size() - 1, -1.0]]:
+		var s: Array = secs[e[0]]
+		var c := Vector3(s[0], s[3], 0)
+		var r: Array = rings[e[0]]
+		if s[1] <= 0.0 or s[2] <= 0.0:
+			continue
+		for i in seg:
+			tris.append(orient([c, r[i], r[(i + 1) % seg]], c + Vector3(e[1], 0, 0)))
+	return tris
+
+
 static func _mesh(verts: PackedVector3Array, norms: PackedVector3Array) -> ArrayMesh:
 	var arrays := []
 	arrays.resize(Mesh.ARRAY_MAX)

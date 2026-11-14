@@ -13,7 +13,7 @@ static func init() -> void:
 		return
 	M = {
 		hull = std("dfe8f2"), hull_dark = std("56607a"), lance = std("4fe3d6", "4fe3d6", 1.2),
-		engine = add_mat("ffb547", 0.9),
+		engine = add_mat("ffb547", 0.9), nozzle = basic("ffc46b", 1.8),
 		pod = std("ffb547", "ff8a00", 0.6), pod_spike = std("fff1c9"), spore = std("ff4fa3", "ff4fa3", 0.35), spore_dark = std("7a1f5c"),
 		flesh = std("9b3b7a"), flesh_dark = std("4d1d48"), bone = std("e8d9c4"), beetle = std("ff7a3d", "401000", 0.6),
 		moth = std("d9f46a", "334000", 0.5), shell = std("3d5a66"),
@@ -145,24 +145,40 @@ static func _flash(n: Node, on: bool) -> void:
 
 # ---------- models ----------
 
+## Player ship: a rounded, bulky gunship. Lofted fuselage with a bubble canopy, short thick
+## swept wings with a slight droop, twin side engine pods and a main thruster.
 static func ship() -> Node3D:
 	var g := Node3D.new()
 	var body := Node3D.new()
 	g.add_child(body)
-	var hull := mesh(geo("hull", func(): return Geo.cone(2.6, 14, 6)), M.hull)
-	hull.rotation.z = -PI / 2
-	body.add_child(hull)
-	var ck := mesh(geo("ck", func(): return Geo.octa(1.5)), M.lance, Vector3(1.2, 1.3, 0))
-	ck.scale = Vector3(2.2, 0.8, 1)
-	body.add_child(ck)
-	var wing_tris := Geo.xf(Geo.prism([[-5, 0], [3, 0], [-6.5, 9]], 0.5), Geo.rot(Vector3.RIGHT, PI / 2))
-	body.add_child(mesh(Geo.cached("wingA", func(): return Geo.build(wing_tris)), M.hull_dark, Vector3(-1, -0.6, 0.8)))
-	body.add_child(mesh(Geo.cached("wingB", func(): return Geo.build(_mirror_z(wing_tris))), M.hull_dark, Vector3(-1, -0.6, -0.8)))
-	body.add_child(mesh(geo("fin", func(): return Geo.prism([[-7, 0], [-2, 0], [-8, 5]], 0.5)), M.hull_dark, Vector3(0, 1, 0)))
-	var en := mesh(geo("eng", func(): return Geo.cyl(1.6, 2, 2, 6)), M.hull_dark, Vector3(-7.4, 0, 0))
+	# sections are [x, half height, half depth, centre y], tail first
+	body.add_child(_wound("hull", func(): return Geo.loft([
+			[-7.4, 1.5, 1.7, 0.1], [-6.2, 2.0, 2.2, 0.1], [-3.6, 2.4, 2.6, 0.2], [-0.4, 2.5, 2.7, 0.2],
+			[2.8, 2.2, 2.4, 0.0], [5.2, 1.6, 1.9, -0.25], [6.8, 1.0, 1.2, -0.45], [7.6, 0.45, 0.6, -0.55]], 8), M.hull))
+	# chin plate and belly keel in the darker tone
+	body.add_child(_wound("chin", func(): return Geo.loft([
+			[-5.8, 0.9, 1.6, -1.9], [-2.0, 1.1, 1.9, -2.1], [2.6, 0.9, 1.6, -1.9], [4.6, 0.5, 1.0, -1.5]], 6), M.hull_dark))
+	var canopy := mesh(Geo.cached("canopy", func(): return Geo.build(Geo.hemi(1.0, 8, 3), Vector3.ZERO)), M.lance, Vector3(2.2, 1.7, 0))
+	canopy.scale = Vector3(2.8, 1.45, 1.5)
+	body.add_child(canopy)
+	var wing := Geo.xf(Geo.prism([[-5.6, 0], [1.2, 0], [-1.6, 5.6], [-4.4, 6.2]], 0.7), Geo.rot(Vector3.RIGHT, PI / 2))
+	wing = Geo.xf(wing, Geo.rot(Vector3.RIGHT, 0.22))
+	body.add_child(mesh(Geo.cached("wingA", func(): return Geo.build(wing)), M.hull_dark, Vector3(-0.6, -0.9, 2.0)))
+	body.add_child(mesh(Geo.cached("wingB", func(): return Geo.build(_mirror_z(wing))), M.hull_dark, Vector3(-0.6, -0.9, -2.0)))
+	body.add_child(mesh(geo("fin", func(): return Geo.prism([[-7.2, 0], [-3.2, 0], [-5.4, 2.6], [-7.0, 2.9]], 0.6)), M.hull_dark, Vector3(0, 1.9, 0)))
+	# engine pods along the flanks, each with a glowing nozzle
+	var nac := Geo.cached("nac", func(): return Geo.build_wound(Geo.loft([[-8.2, 0.9, 0.9, 0], [-7.4, 1.15, 1.15, 0], [-2.4, 1.15, 1.15, 0], [-0.8, 0.6, 0.6, 0]], 6)))
+	var noz := geo("noz", func(): return Geo.xf(Geo.cyl(0.7, 0.7, 0.3, 6), Geo.rot(Vector3.BACK, PI / 2)))
+	for z in [2.7, -2.7]:
+		body.add_child(mesh(nac, M.hull, Vector3(0, -1.0, z)))
+		body.add_child(mesh(noz, M.nozzle, Vector3(-8.3, -1.0, z)))
+	var en := mesh(geo("eng", func(): return Geo.cyl(1.3, 1.7, 1.4, 8)), M.hull_dark, Vector3(-8.0, 0.1, 0))
 	en.rotation.z = PI / 2
 	body.add_child(en)
-	var fl := mesh(geo("flame", func(): return Geo.xf(Geo.xf(Geo.cone(1.3, 6, 6), Geo.rot(Vector3.BACK, PI / 2)), Geo.move(-3, 0, 0))), M.engine, Vector3(-8.3, 0, 0))
+	var core := mesh(geo("engc", func(): return Geo.cyl(1.25, 1.25, 0.3, 8)), M.nozzle, Vector3(-8.75, 0.1, 0))
+	core.rotation.z = PI / 2
+	body.add_child(core)
+	var fl := mesh(geo("flame", func(): return Geo.xf(Geo.xf(Geo.cone(1.2, 6, 8), Geo.rot(Vector3.BACK, PI / 2)), Geo.move(-3, 0, 0))), M.engine, Vector3(-8.8, 0.1, 0))
 	fl.set_meta("nf", true)
 	body.add_child(fl)
 	g.set_meta("body", body)
@@ -170,18 +186,37 @@ static func ship() -> Node3D:
 	return g
 
 
+static func _wound(key: String, f: Callable, mat: Material) -> MeshInstance3D:
+	return mesh(Geo.cached(key, func(): return Geo.build_wound(f.call())), mat)
+
+
 static func _mirror_z(tris: Array) -> Array:
 	return Geo.xf(tris, Transform3D(Basis().scaled(Vector3(1, 1, -1)), Vector3.ZERO))
 
 
+## Pod: a drum that spins around its long axis (parallel to the ship), with three canted
+## blades, two collars and a glowing emitter at the front. The "spin" child turns; the
+## root only flips to face backwards when the pod docks behind the ship.
 static func pod() -> Node3D:
 	var g := Node3D.new()
-	g.add_child(mesh(geo("podB", func(): return Geo.ico(3, 0)), M.pod))
-	var sg := geo("podS", func(): return Geo.xf(Geo.cone(0.75, 3, 4), Geo.move(0, 3.2, 0)))
-	for r in [Vector3(0, 0, 0), Vector3(0, 0, PI), Vector3(0, 0, PI / 2), Vector3(0, 0, -PI / 2), Vector3(PI / 2, 0, 0), Vector3(-PI / 2, 0, 0)]:
-		var s := mesh(sg, M.pod_spike)
-		s.rotation = r
-		g.add_child(s)
+	var spin := Node3D.new()
+	g.add_child(spin)
+	spin.add_child(mesh(Geo.cached("podB", func(): return Geo.build_wound(Geo.loft([
+			[-3.4, 1.0, 1.0, 0], [-2.8, 1.7, 1.7, 0], [1.8, 1.9, 1.9, 0], [3.0, 1.4, 1.4, 0], [3.5, 0.7, 0.7, 0]], 8))), M.pod))
+	var collar := geo("podC", func(): return Geo.xf(Geo.cyl(2.25, 2.25, 0.7, 8), Geo.rot(Vector3.BACK, PI / 2)))
+	for x in [-2.2, 1.6]:
+		spin.add_child(mesh(collar, M.hull_dark, Vector3(x, 0, 0)))
+	var blade := geo("podF", func(): return Geo.prism([[-3.0, 1.4], [1.2, 1.4], [0.2, 3.7], [-2.4, 3.9]], 0.5))
+	for i in 3:
+		var arm := Node3D.new()
+		arm.rotation.x = i * TAU / 3.0
+		spin.add_child(arm)
+		var b := mesh(blade, M.pod_spike)
+		b.rotation.y = 0.3
+		arm.add_child(b)
+	var tip := mesh(geo("podT", func(): return Geo.ico(0.85, 0)), M.pod_shot, Vector3(3.6, 0, 0))
+	spin.add_child(tip)
+	g.set_meta("spin", spin)
 	return g
 
 

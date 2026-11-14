@@ -65,6 +65,16 @@ func _initialize() -> void:
 	main.drop_item(main.P.x + 4, main.P.y, "P")
 	tick(2)
 	check(main.pod.state == "front", "P item docks the pod in front")
+	var spin: Node3D = main.pod_m.get_meta("spin")
+	var r0 := spin.rotation.x
+	tick(10)
+	check(absf(spin.rotation.x - r0) > 0.5 and spin.rotation.y == 0.0 and spin.rotation.z == 0.0, "pod spins around its long axis only")
+	check(main.pod_m.global_basis.x.normalized().dot(Vector3.RIGHT) > 0.99, "pod's axis runs along the ship, emitter forward")
+	main.pod.state = "back"
+	tick(20)
+	check(main.pod_m.global_basis.x.normalized().dot(Vector3.LEFT) > 0.99, "pod docked behind turns to face backwards")
+	main.pod.state = "front"
+	tick(20)
 	press("pod")
 	tick()
 	check(main.pod.state == "free", "pod launches")

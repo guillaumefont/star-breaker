@@ -252,7 +252,7 @@ func _setup_world() -> void:
 	ship_glow = Models.glow("ff9a40", 9)
 	ship_glow.position = Vector3(-9, 0, 0)
 	ship.add_child(ship_glow)
-	pod_m.add_child(Models.glow("ffb547", 12))
+	pod_m.add_child(Models.glow("ffb547", 10))
 	muzzle_s = Models.glow("3ff0e0", 5)
 	muzzle_s.visible = false
 	world.add_child(muzzle_s)
@@ -273,7 +273,7 @@ func _warm_up() -> void:
 	w.scale = Vector3.ONE * 0.02
 	add_child(w)
 	var flashed := Models.drifter()
-	var list: Array = [Models.drifter(), Models.turret(1), Models.turret(-1), Models.hopper(), Models.shell(), flashed]
+	var list: Array = [Models.ship(), Models.pod(), Models.drifter(), Models.turret(1), Models.turret(-1), Models.hopper(), Models.shell(), flashed]
 	for k in ["P", "L", "S"]:
 		list.append(Models.carrier(k))
 		list.append(Models.item(k))
@@ -1552,8 +1552,10 @@ func _process(_delta: float) -> void:
 		pod_m.visible = pod.state != "none"
 		pod_m.position = Vector3(X(pod.x), Y(pod.y), 0)
 		if not paused:
-			pod_m.rotation.z -= 0.15 if (pod.state == "free" or pod.state == "return") else 0.04
-			pod_m.rotation.x += 0.02
+			# spins around its long axis, faster in flight; turns around when docked behind
+			(pod_m.get_meta("spin") as Node3D).rotation.x += 0.32 if (pod.state == "free" or pod.state == "return") else 0.09
+			var face := PI if pod.state == "back" else 0.0
+			pod_m.rotation.y = lerp_angle(pod_m.rotation.y, face, 0.25)
 		for e in G.enemies:
 			sync_e(e)
 		for b in G.pb:
