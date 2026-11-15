@@ -375,11 +375,12 @@ func _setup_world() -> void:
 	for c in ["4a5470", "dfe9ff", "ffffff"]:
 		charge_fx.add_child(Models.glow(c, 1.0))
 	charge_fx.add_child(Models.mesh(Models.geo("orb", func(): return Geo.ico(1, 1)), Models.M.beam))
-	# the strands coil round the ball's surface, each one a different way round
+	# the strands wind loosely round the ball's surface, each one a different way round
 	for st in 6:
-		var coil := Geo.cached("coil%d" % st, func(): return Geo.build_wound(Geo.ball_coil(2.5, 0.07 if st < 3 else 0.2,
-				60, 4 if st < 3 else 6, (st % 3) * TAU / 3.0 + (0.0 if st < 3 else PI / 3.0))))
-		charge_fx.add_child(Models.mesh(coil, pulse_mat(st)))
+		charge_fx.add_child(Models.mesh(coil_mesh(st, 0), pulse_mat(st)))
+	for v in COIL_SHAPES:
+		coil_mesh(0, v)
+		coil_mesh(3, v)
 	world.add_child(charge_fx)
 
 
@@ -1283,7 +1284,24 @@ func sync_charge_fx(lv: int) -> void:
 		m.position = Vector3.ZERO
 		# round the pod the coil is stretched along its length
 		m.scale = Vector3(r * (1.5 if podded else 1.0), r, r)
-		m.rotation = Vector3(-charge_ph * (1.0 + 0.3 * (st % 3)), 0, 0.3 * (st % 3))
+		# the winding keeps changing: looser and tighter, bending one way then the other
+		m.mesh = coil_mesh(st, int(floor(tt * COIL_MORPH * (1.0 + 0.25 * (st % 3)) + st * 5)) % COIL_SHAPES)
+		m.rotation = Vector3(-charge_ph * (1.0 + 0.3 * (st % 3)) + (st % 3) * TAU / 3.0 + (0.0 if st < 3 else PI / 3.0),
+				0, 0.3 * (st % 3))
+
+
+## Shapes a charge strand's winding cycles through, and how many of them go by each tick.
+const COIL_SHAPES := 24
+const COIL_MORPH := 0.4
+
+
+## Charge strand mesh: shape `v` of the cycle, a hard strand (st < 3) or its haze.
+func coil_mesh(st: int, v: int) -> ArrayMesh:
+	var hard := st < 3
+	return Geo.cached("coil%s%d" % ["h" if hard else "z", v], func():
+		var t := float(v) / COIL_SHAPES * TAU
+		return Geo.build_wound(Geo.ball_coil(1.25 + 0.35 * sin(t), 0.07 if hard else 0.2, 48, 4 if hard else 6,
+				0.0, 1.4 * sin(t * 2.0 + 0.7), t)))
 
 
 ## Radius of the charge strands coiled round a docked pod (its crystal and shards).
