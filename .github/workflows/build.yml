@@ -103,10 +103,15 @@ jobs:
         env:
           PR: ${{ github.event.pull_request.number }}
         run: |
-          shell=$( { echo "$GODOT_VERSION"; cat project.godot export_presets.cfg scripts/boot.gd scenes/boot.tscn; } | sha256sum | cut -c1-16)
+          shell=$( { echo "$GODOT_VERSION"; echo games-monorepo; cat project.godot export_presets.cfg scripts/boot.gd scenes/boot.tscn; } | sha256sum | cut -c1-16)
+          # This game moved to the guillaumefont/games monorepo. Main builds here point installed apps at
+          # its Pages folder (games/star-breaker/), and the shell id is salted the same way as there, so an
+          # installed app is offered this APK once, then updates from the monorepo's builds.
           base="https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/"
+          new="https://${GITHUB_REPOSITORY_OWNER,,}.github.io/games/star-breaker/"
+          own="$new"; if [ -n "$PR" ]; then own="${base}pr/$PR/"; fi
           printf '\n[star_breaker]\n\nbuild=%s\nshell="%s"\nupdate_url="%s"\nupdate_fallback_url="%s"\n' \
-            "$GITHUB_RUN_NUMBER" "$shell" "$base${PR:+pr/$PR/}" "$base" >> project.godot
+            "$GITHUB_RUN_NUMBER" "$shell" "$own" "$new" >> project.godot
           echo "SHELL_ID=$shell" >> "$GITHUB_ENV"
           tail -6 project.godot
 
