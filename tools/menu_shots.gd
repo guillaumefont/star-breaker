@@ -37,6 +37,9 @@ func _initialize() -> void:
 	if args.has("crash"):
 		main.hud.show_crash_notice("Last line: 7.00 TICK t=240  ·  last new thing: spawn carrier", "report")
 		tag += "_crash"
+	ProjectSettings.set_setting("application/config/version", "b73 7bc2e25")
+	main.hud._build_id = "b73 7bc2e25"
+	main.hud.set_build_state("idle")
 	main.bests = {normal = 184250, endless = 96400}
 	main.hud.set_bests(main.fmt(184250), main.fmt(96400))
 	main.hud.select_mode("normal")
