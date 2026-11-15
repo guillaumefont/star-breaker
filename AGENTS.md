@@ -94,6 +94,11 @@ the pod model spins on its `spin` child around X, the root only turns it to face
 - `boot.gd` must not use any game class (`Diag`, `Hud`, ...): touching one before the pack
   loads would keep the bundled version. Tests and tools load `scenes/main.tscn` directly.
 - PR APKs follow `pr/N/update.json`, then main once the preview is gone.
+- The menu's build line (`hud.btn_build`) shows the running build and, after a quiet check of
+  `update.json`, "New build N". Tapping it restarts the game (`main.refresh_game()`): on
+  Android `OS.set_restart_on_exit()` + `quit()` relaunches the app (Godot's activity rebirth),
+  so boot.gd's launch check loads the newest pack; the web page just reloads. A pack can't be
+  swapped in without a restart: scripts already loaded stay cached.
 
 ## Main menu and modes
 

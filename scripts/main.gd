@@ -167,6 +167,7 @@ func _ready() -> void:
 	hud.safe_toggled.connect(apply_safe)
 	hud.title_pressed.connect(func(): _want_title = true)
 	hud.mode_chosen.connect(func(m: String): _want_mode = m)
+	hud.refresh_pressed.connect(refresh_game)
 	var cfg := ConfigFile.new()
 	if cfg.load(SAVE_PATH) == OK:
 		bests.normal = int(cfg.get_value("game", "best", 0))
@@ -183,9 +184,66 @@ func _ready() -> void:
 	if Diag.crashed:
 		hud.show_crash_notice(Diag.summary(), Diag.report())
 	_warm_up()
+	_check_update()
 	get_viewport().size_changed.connect(_on_resize)
 	_on_resize()
 	apply_safe()
+
+
+## Restarts the game from scratch so the launch-time update check loads the newest build:
+## the app process restarts on Android and desktop, the page reloads in the browser.
+## Tests swap `restart_fn` for a stub.
+var restart_fn := func():
+	if OS.has_feature("web"):
+		JavaScriptBridge.eval("location.reload()")
+	else:
+		OS.set_restart_on_exit(true, OS.get_cmdline_args())
+		get_tree().quit()
+
+
+func refresh_game() -> void:
+	if mode != "title":
+		return
+	Diag.note("REFRESH")
+	_save()
+	hud.set_build_state("restarting")
+	# let the label show before the app goes away
+	await get_tree().create_timer(0.15).timeout
+	restart_fn.call()
+
+
+## The build number from the running version ("b73 abc1234" -> 73), or 0.
+static func build_number(version: String) -> int:
+	var m := RegEx.create_from_string("^b(\\d+)").search(version)
+	return int(m.get_string(1)) if m else 0
+
+
+## Asks the update server (same as the launch-time updater) whether a newer build is out,
+## and if so says so on the menu's build line. Quiet when offline or without an update url.
+func _check_update() -> void:
+	var url := str(ProjectSettings.get_setting("star_breaker/update_url", ""))
+	if url == "":
+		return
+	var http := HTTPRequest.new()
+	http.timeout = 6.0
+	add_child(http)
+	if http.request(url + "update.json?t=%d" % int(Time.get_unix_time_from_system())) != OK:
+		http.queue_free()
+		return
+	var r: Array = await http.request_completed
+	http.queue_free()
+	if r[0] != HTTPRequest.RESULT_SUCCESS or r[1] != 200:
+		return
+	var d = JSON.parse_string((r[3] as PackedByteArray).get_string_from_utf8())
+	if d is Dictionary:
+		show_update(int(d.get("build", 0)))
+
+
+## Shows "new build" on the menu when `remote` is newer than the running build.
+func show_update(remote: int) -> void:
+	var have := build_number(str(ProjectSettings.get_setting("application/config/version", "")))
+	if have > 0 and remote > have:
+		hud.set_build_state("new", remote)
 
 
 func _setup_input() -> void:

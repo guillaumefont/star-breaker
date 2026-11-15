@@ -58,6 +58,22 @@ func _initialize() -> void:
 	check(main.muted != muted0, "the menu's sound button mutes")
 	hud._btn_menu_mute.pressed.emit()
 	tick(1, false)
+	# the build line: shows the build, says when a newer one is out, and restarts the game
+	check(hud.btn_build.is_visible_in_tree() and hud.btn_build.text.begins_with("BUILD"), "the menu shows the build line (%s)" % hud.btn_build.text)
+	check(main.build_number("b73 7bc2e25") == 73 and main.build_number("b9 pr4 abc") == 9 and main.build_number("dev") == 0, "reads the build number from the version")
+	ProjectSettings.set_setting("application/config/version", "b73 7bc2e25")
+	main.show_update(73)
+	check(not hud.btn_build.text.contains("NEW"), "no update notice when already on the newest build")
+	main.show_update(75)
+	check(hud.btn_build.text.contains("NEW BUILD 75"), "the build line says when a newer build is out (%s)" % hud.btn_build.text)
+	ProjectSettings.set_setting("application/config/version", "")
+	var restarted := [0]
+	main.restart_fn = func(): restarted[0] += 1
+	hud.btn_build.pressed.emit()
+	await create_timer(0.3).timeout
+	check(restarted[0] == 1, "tapping the build line restarts the game")
+	check(hud.blocks_touch(hud.btn_build.get_global_rect().get_center()), "a tap on the build line doesn't count as a game touch")
+	hud.set_build_state("idle")
 	var pr: Rect2 = hud._cards.normal.button.get_global_rect()
 	var er: Rect2 = hud._cards.endless.button.get_global_rect()
 	check(pr.size.y > er.size.y and er.position.y > pr.position.y, "Play sits above the smaller Endless button")

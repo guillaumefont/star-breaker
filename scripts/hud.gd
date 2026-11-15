@@ -6,6 +6,8 @@ signal start_pressed
 signal mute_pressed
 signal safe_toggled
 signal title_pressed
+## The build line on the main menu was tapped: restart the game to load the newest build.
+signal refresh_pressed
 ## A mode card on the main menu was tapped or clicked ("normal" or "endless").
 signal mode_chosen(mode: String)
 
@@ -67,6 +69,9 @@ var _crash: PanelContainer
 var _crash_txt: Label
 var _crash_report := ""
 var _btn_gfx: Button
+## Main menu line with the running build; tapping it restarts the game on the newest build.
+var btn_build: Button
+var _build_id := ""
 var _boss_name: Label
 var _fade: ColorRect
 var _fade_tw: Tween
@@ -805,9 +810,13 @@ func _build_device_row(m: Control) -> void:
 	)
 	row.add_child(_btn_gfx)
 	_update_gfx()
-	var ver := _label("Build " + str(ProjectSettings.get_setting("application/config/version", "dev")), 11, 500, Color(C_MUTED, 0.6))
-	ver.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(ver)
+	_build_id = str(ProjectSettings.get_setting("application/config/version", ""))
+	if _build_id == "":
+		_build_id = "dev"
+	btn_build = _small_button("")
+	btn_build.pressed.connect(func(): refresh_pressed.emit())
+	row.add_child(btn_build)
+	set_build_state("idle")
 
 
 func _small_button(text: String) -> Button:
@@ -824,6 +833,21 @@ func _small_button(text: String) -> Button:
 	b.add_theme_color_override("font_color", C_TEXT)
 	_small_buttons.append(b)
 	return b
+
+
+## What the build line says: "idle" (the build, tap to refresh), "new" (a newer build is
+## out, `build` is its number), or "restarting".
+func set_build_state(state: String, build := 0) -> void:
+	match state:
+		"new":
+			btn_build.text = ("New build %d · tap to update" % build).to_upper()
+			btn_build.add_theme_color_override("font_color", C_AMBER)
+		"restarting":
+			btn_build.text = "RESTARTING…"
+			btn_build.add_theme_color_override("font_color", C_TEXT)
+		_:
+			btn_build.text = "BUILD %s  ⟳  REFRESH" % _build_id
+			btn_build.add_theme_color_override("font_color", C_MUTED)
 
 
 func _update_gfx() -> void:
