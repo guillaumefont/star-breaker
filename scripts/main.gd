@@ -431,7 +431,8 @@ func _add_menu_ship() -> void:
 	gl.position = Vector3(-9, 0, 0)
 	menu_ship.add_child(gl)
 	menu_pod = Models.pod()
-	menu_pod.position = Vector3(11.5, 0, 0)
+	# on the nose tip, which sits a little below the hull's centre line
+	menu_pod.position = Vector3(11.6, -0.55, 0)
 	menu_pod.add_child(Models.glow("3ff0e0", 9))
 	menu_ship.add_child(menu_pod)
 	camera.add_child(menu_ship)
