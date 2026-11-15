@@ -63,13 +63,15 @@ the pod model spins on its `spin` child around X, the root only turns it to face
 
 ## App icon
 
-- Icon (Guillaume, 2026-11-14, option A of four): the gunship and its crystal pod flying over a
-  dusk scene, no frame. The family trait shared with his Tether Rally and Aurite Front icons is
-  one bold subject on a dusk scene (light beams from the top, ridged horizon, sparks), not a
-  round medal: he rejected the ring frame.
-- One source, `tools/icon.py` (Pillow): `python3 tools/icon.py` rewrites `icon.png` (project
-  icon and web favicon), `icons/` (launcher icon and the adaptive background, foreground and
-  monochrome layers) and `store/icon-512.png`. Commit the PNGs; CI doesn't run it.
+- Icon ("Straight up", Guillaume's pick 2026-11-15, after many rounds): the real ship with its
+  pod docked at the nose, seen from above and pointing straight up, on a clean violet-to-orange
+  gradient with a soft hover shadow. He wants it clean: no frame, no scenery, no clutter.
+- Two steps: `tools/icon_shots.gd` renders the game's own ship and pod top-down to
+  `store/ship-top.png` (rerun after changing those models:
+  `xvfb-run -a -s "-screen 0 1400x1200x24" godot --path . --rendering-method gl_compatibility --resolution 1024x1024 --script tools/icon_shots.gd`),
+  then `python3 tools/icon.py` (Pillow) rewrites `icon.png` (project icon and web favicon),
+  `icons/` (launcher icon and adaptive background, foreground and monochrome layers) and
+  `store/icon-512.png`. Commit the PNGs; CI runs neither.
 - A launcher icon lives in the APK, not the game pack: a new icon only shows after installing
   a new APK.
 
