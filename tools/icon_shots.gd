@@ -1,11 +1,11 @@
 extends SceneTree
-## Renders the real ship with its pod docked at the nose, seen from straight above, on a
-## transparent background: store/ship-top.png, the artwork tools/icon.py builds the app
-## icons from. Run it again after changing the ship or pod models, then tools/icon.py.
+## Renders the game's real pod (the cyan crystal with its ring and pink shards) at a three
+## quarter angle on a transparent background: store/pod.png, the artwork tools/icon.py builds
+## the app icons from. Run it again after changing the pod model, then tools/icon.py.
 ## xvfb-run -a -s "-screen 0 1400x1200x24" godot --path . --rendering-method gl_compatibility \
 ##     --resolution 1024x1024 --script tools/icon_shots.gd
 
-const OUT := "res://store/ship-top.png"
+const OUT := "res://store/pod.png"
 
 
 func _initialize() -> void:
@@ -33,19 +33,14 @@ func _initialize() -> void:
 		d.light_energy = l[1]
 		scene.add_child(d)
 		d.look_at_from_position(l[2], Vector3.ZERO)
-	var ship := Models.ship()
-	(ship.get_meta("flame") as Node3D).visible = false
-	scene.add_child(ship)
 	var pod := Models.pod()
-	pod.position = Vector3(11.5, 0, 0)
 	(pod.get_meta("spin") as Node3D).rotation.x = 0.35
 	scene.add_child(pod)
 	var cam := Camera3D.new()
-	cam.projection = Camera3D.PROJECTION_ORTHOGONAL
-	cam.size = 40.0
+	cam.fov = 40.0
 	scene.add_child(cam)
-	cam.position = Vector3(2, 60, 0.001)
-	cam.look_at(Vector3(2, 0, 0))
+	cam.position = Vector3(7, 4, 13)
+	cam.look_at(Vector3.ZERO)
 	cam.current = true
 	for i in 3:
 		await process_frame
