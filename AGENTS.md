@@ -71,14 +71,17 @@ the pod model spins on its `spin` child around X, the root only turns it to face
 
 ## App icon
 
-- Icon (Guillaume's pick 2026-11-15, after many rounds): the game's crystal pod alone at a three
-  quarter angle (ring and pink shards), on a dark violet gradient with white warp lines along its
-  flight: ten lines in evenly spaced lanes, none crossing the pod, listed in `WARP` in tools/icon.py (30 random ones
-  were "too clustered"; thin white streaks were rejected). He
-  wants it clean: no frame, no scenery, no clutter.
-- Two steps: `tools/icon_shots.gd` renders the game's own pod model to `store/pod.png`
-  (rerun after changing it:
-  `xvfb-run -a -s "-screen 0 1400x1200x24" godot --path . --rendering-method gl_compatibility --resolution 1024x1024 --script tools/icon_shots.gd`),
+- Icon (Guillaume's pick 2026-11-15, after many rounds): the game's crystal pod at a three
+  quarter angle (ring and pink shards) with the ship docked behind it at true scale (only its
+  nose and cockpit show), the group pulled back and moved right (`ZOOM`, `SHIFT` in
+  tools/icon.py), on a dark violet gradient with white warp lines along the flight: ten lines in
+  evenly spaced lanes, listed in `WARP` (30 random ones were "too clustered"; thin white streaks
+  were rejected). He wants it clean: no frame, no scenery, no clutter, and a preview picture of
+  every icon change before it ships.
+- Two steps: `tools/icon_shots.gd` renders the game's own models to `store/pod.png` (pod alone)
+  and `store/ship-pod.png` (ship and pod on a 3x wider canvas, same projection); rerun after
+  changing a model:
+  `xvfb-run -a -s "-screen 0 3200x3200x24" godot --path . --rendering-method gl_compatibility --resolution 3072x3072 --script tools/icon_shots.gd`,
   then `python3 tools/icon.py` (Pillow) rewrites `icon.png` (project icon and web favicon),
   `icons/` (launcher icon and adaptive background, foreground and monochrome layers) and
   `store/icon-512.png`. Commit the PNGs; CI runs neither.
