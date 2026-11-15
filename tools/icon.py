@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Star Breaker app icon (Guillaume's pick 2026-11-15, "Pod, 3/4"): the game's crystal pod
 alone, seen at a three quarter angle with its ring and pink shards, hovering over a dark violet
-gradient (he asked for a darker background).
+gradient (he asked for a darker background), with warp lines streaking past (option "C, a bit
+more accentuated").
 
 The pod is a render of the game's own model: tools/icon_shots.gd writes store/pod.png (run it
 again after changing the pod), then this script builds every icon from it.
@@ -12,7 +13,9 @@ launcher icon), icons/adaptive-{background,foreground,monochrome}-432.png (Andro
 layers, the pod stays inside the central safe circle) and store/icon-512.png (square, for
 stores and previews). Needs Pillow.
 """
+import math
 import os
+import random
 import sys
 
 from PIL import Image, ImageDraw, ImageFilter
@@ -30,7 +33,28 @@ def background():
     for y in range(N):
         t = min(1.0, max(0.0, (y - (N - VIS) / 2) / VIS))
         col.putpixel((0, y), tuple(int(TOP[i] + (BOTTOM[i] - TOP[i]) * t) for i in range(3)))
-    return col.resize((N, N)).convert('RGBA')
+    im = col.resize((N, N)).convert('RGBA')
+    im.alpha_composite(warp_lines())
+    return im
+
+
+def warp_lines():
+    """Thin white lines running along the pod's flight (20 degrees up to the right), as if it
+    flies through hyperspace. Seeded, so every rebuild draws the same lines."""
+    layer = Image.new('RGBA', (N, N), (0, 0, 0, 0))
+    d = ImageDraw.Draw(layer)
+    a = math.radians(-20)
+    c, s, nx, ny = math.cos(a), math.sin(a), -math.sin(a), math.cos(a)
+    rnd = random.Random(4)
+    for _ in range(30):
+        b, a0, length = rnd.uniform(-0.75, 0.75), rnd.uniform(-0.6, 0.75), rnd.uniform(0.3, 0.75)
+        alpha, width = rnd.randint(80, 170), rnd.uniform(0.007, 0.015)
+
+        def p(t):
+            return (N / 2 + (c * t + nx * b) * VIS, N / 2 + (s * t + ny * b) * VIS)
+
+        d.line([p(a0), p(a0 - length)], fill=(255, 255, 255, alpha), width=int(width * VIS))
+    return layer
 
 
 def subject(root):
