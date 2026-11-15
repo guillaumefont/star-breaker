@@ -72,7 +72,8 @@ the pod model spins on its `spin` child around X, the root only turns it to face
 
 - Icon (Guillaume's pick 2026-11-15, after many rounds): the game's crystal pod alone at a three
   quarter angle (ring and pink shards), on a dark violet gradient with white warp lines along its
-  flight (he asked for "C, a bit more accentuated"; thin white streaks were rejected). He
+  flight: ten lines in evenly spaced lanes, none crossing the pod, listed in `WARP` in tools/icon.py (30 random ones
+  were "too clustered"; thin white streaks were rejected). He
   wants it clean: no frame, no scenery, no clutter.
 - Two steps: `tools/icon_shots.gd` renders the game's own pod model to `store/pod.png`
   (rerun after changing it:

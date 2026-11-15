@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Star Breaker app icon (Guillaume's pick 2026-11-15, "Pod, 3/4"): the game's crystal pod
 alone, seen at a three quarter angle with its ring and pink shards, hovering over a dark violet
-gradient (he asked for a darker background), with warp lines streaking past (option "C, a bit
-more accentuated").
+gradient (he asked for a darker background), with warp lines streaking past (option "C", then
+spread out: nine evenly spaced lanes plus two on the left).
 
 The pod is a render of the game's own model: tools/icon_shots.gd writes store/pod.png (run it
 again after changing the pod), then this script builds every icon from it.
@@ -15,7 +15,6 @@ stores and previews). Needs Pillow.
 """
 import math
 import os
-import random
 import sys
 
 from PIL import Image, ImageDraw, ImageFilter
@@ -40,21 +39,35 @@ def background():
 
 def warp_lines():
     """Thin white lines running along the pod's flight (20 degrees up to the right), as if it
-    flies through hyperspace. Seeded, so every rebuild draws the same lines."""
+    flies through hyperspace. One line per evenly spaced lane so they never cluster
+    (Guillaume's pick: "B", nine lanes, then two lines added on the left and the one
+    poking out of the pod's nose removed).
+    Each line: lane offset across the flight (in visible squares), start and end along it,
+    alpha, width."""
     layer = Image.new('RGBA', (N, N), (0, 0, 0, 0))
     d = ImageDraw.Draw(layer)
     a = math.radians(-20)
     c, s, nx, ny = math.cos(a), math.sin(a), -math.sin(a), math.cos(a)
-    rnd = random.Random(4)
-    for _ in range(30):
-        b, a0, length = rnd.uniform(-0.75, 0.75), rnd.uniform(-0.6, 0.75), rnd.uniform(0.3, 0.75)
-        alpha, width = rnd.randint(80, 170), rnd.uniform(0.007, 0.015)
-
+    for b, t0, t1, alpha, width in WARP:
         def p(t):
             return (N / 2 + (c * t + nx * b) * VIS, N / 2 + (s * t + ny * b) * VIS)
 
-        d.line([p(a0), p(a0 - length)], fill=(255, 255, 255, alpha), width=int(width * VIS))
+        d.line([p(t0), p(t1)], fill=(255, 255, 255, alpha), width=int(width * VIS))
     return layer
+
+
+WARP = [
+    (-0.705, 0.554, -0.055, 177, 0.0092),
+    (-0.535, 0.379, -0.301, 130, 0.0097),
+    (-0.357, 0.253, -0.184, 141, 0.0091),
+    (-0.193, 0.700, 0.252, 159, 0.0100),
+    (-0.150, -0.250, -0.750, 150, 0.0110),  # a second extra line on the left
+    (0.110, -0.250, -0.750, 150, 0.0120),   # the extra line on the left
+    (0.203, 0.528, 0.176, 131, 0.0142),
+    (0.344, 0.247, -0.439, 136, 0.0101),
+    (0.558, 0.758, 0.339, 159, 0.0108),
+    (0.704, -0.225, -0.633, 118, 0.0110),
+]
 
 
 def subject(root):
