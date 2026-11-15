@@ -38,3 +38,5 @@ jobs:
         run: ./godot --headless --path . --script tests/fort_test.gd
       - name: Balance (power-up spacing, losing the pod, pod ram, late worlds)
         run: ./godot --headless --path . --script tests/balance_test.gd
+      - name: Two pods (second pod at the back, launch and recall both, death)
+        run: ./godot --headless --path . --script tests/pods_test.gd

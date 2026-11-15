@@ -37,6 +37,11 @@ var paused := false
 var G: Dictionary = {}
 var P: Dictionary = {}
 var pod: Dictionary = {}
+## The second pod (a second P item once the first is docked): it docks on whichever side is free,
+## usually the tail, so the ship is covered front and back.
+var pod2: Dictionary = {}
+## Both pods, `pod` first.
+var pods: Array = []
 ## Best score of the mode being played (or last chosen on the menu).
 var hiscore := 0
 ## Best score per mode, saved; `hiscore` mirrors the current mode's entry.
@@ -68,6 +73,7 @@ var hud: Hud
 var audio: Sfx
 var ship: Node3D
 var pod_m: Node3D
+var pod2_m: Node3D
 var ship_glow: MeshInstance3D
 ## The big ship and pod on the right of the main menu; a child of the camera.
 var menu_ship: Node3D
@@ -356,6 +362,10 @@ func _setup_world() -> void:
 	ship_glow.position = Vector3(-9, 0, 0)
 	ship.add_child(ship_glow)
 	pod_m.add_child(Models.glow("3ff0e0", 9))
+	pod2_m = Models.pod()
+	world.add_child(pod2_m)
+	pod2_m.visible = false
+	pod2_m.add_child(Models.glow("3ff0e0", 9))
 	muzzle_s = Models.glow("3ff0e0", 5)
 	muzzle_s.visible = false
 	world.add_child(muzzle_s)
@@ -744,6 +754,8 @@ func new_game(world := 0, m := "") -> void:
 	P = {x = -10.0, y = 63.0, hw = 2.5, hh = 1.5, alive = true, inv = 0, entering = true, exiting = false, charge = 0, charge_held = false,
 		rapid_cd = 0, fire_hold = 0, laser = 0, speed = 0, respawn = 0, vy = 0.0, ready_lv = 0}
 	pod = {state = "none", x = 0.0, y = 0.0, hw = 3.6, hh = 3.6, tx = 0.0, grab_cd = 0, hit_cd = 0}
+	pod2 = pod.duplicate()
+	pods = [pod, pod2]
 	Diag.note("PLAY", "%s world %d" % [play_mode, world + 1])
 	mode = "play"
 	paused = false
@@ -768,10 +780,9 @@ func start_stage() -> void:
 	script_list = Worlds.script(G.world)
 	G.merge({scroll = 0.0, t = 0, si = 0, enemies = [], eb = [], pb = [], items = [], gates = [], boss = null, warned = false, warn_t = 0, clear_t = 0, bparts = []}, true)
 	P.merge({x = -10.0, y = 63.0, entering = true, exiting = false, alive = true, inv = 60, charge = 0}, true)
-	if pod.state != "none":
-		pod.state = "front"
-		pod.x = P.x + 11
-		pod.y = P.y
+	for p in pods:
+		if p.state != "none":
+			dock_pod(p, "front" if p == pod else "back")
 	show_banner(wdef.name, ("Endless · Lap %d · %s" % [G.lap + 1, wdef.sub]) if endless() else wdef.sub, 170)
 	audio.music(wdef.song)
 	hud.fade(false)
@@ -866,6 +877,7 @@ func teardown() -> void:
 	hud.fade(false)
 	ship.visible = false
 	pod_m.visible = false
+	pod2_m.visible = false
 	charge_orb.visible = false
 	nova_orb.visible = false
 	muzzle_s.visible = false
@@ -1161,10 +1173,11 @@ func fire_shot(rapid: bool) -> void:
 		# the angled pair never carries the heavy shot's double damage
 		shot(nx - 2, y, 4.6, -1.5, Models.M.shot, 1)
 		shot(nx - 2, y, 4.6, 1.5, Models.M.shot, 1)
-	if pod.state == "back":
-		shot(pod.x - 4, pod.y, -5, 0, Models.M.pod_shot, 1)
-	elif pod.state != "none":
-		shot(pod.x + 4, pod.y, 5, 0, Models.M.pod_shot, 1)
+	for p in pods:
+		if p.state == "back":
+			shot(p.x - 4, p.y, -5, 0, Models.M.pod_shot, 1)
+		elif p.state != "none":
+			shot(p.x + 4, p.y, 5, 0, Models.M.pod_shot, 1)
 	muzzle = 3 if rapid else 5
 	audio.play("rapid" if rapid else "shot")
 
@@ -1176,6 +1189,61 @@ const CHARGE_MAX := 240
 const NOVA := 4
 ## Ticks between two rams of the pod into an enemy (1 damage each): it shields more than it kills.
 const POD_RAM_CD := 8
+
+
+## Docks pod `p` on `side` ("front" or "back") of the ship.
+func dock_pod(p: Dictionary, side: String) -> void:
+	p.state = side
+	p.x = P.x + (11 if side == "front" else -11)
+	p.y = P.y
+
+
+## The side a pod flying back docks on: the one it is nearer to, unless the other pod holds it.
+func dock_side(p: Dictionary) -> String:
+	var side := "front" if p.x >= P.x else "back"
+	var other: Dictionary = pod2 if p == pod else pod
+	if other.state == side:
+		side = "back" if side == "front" else "front"
+	return side
+
+
+## Moves one pod for a tick: docked, flying out, or flying back; catches it when it reaches the ship.
+func update_pod(p: Dictionary) -> void:
+	if p.grab_cd > 0:
+		p.grab_cd -= 1
+	if p.hit_cd > 0:
+		p.hit_cd -= 1
+	match p.state:
+		"front":
+			p.x = P.x + 11
+			p.y = P.y
+		"back":
+			p.x = P.x - 11
+			p.y = P.y
+		"free":
+			p.x += clampf((p.tx - p.x) * 0.08, -3, 3)
+			if P.alive:
+				p.y += (P.y - p.y) * 0.035
+		"return":
+			var dx: float = P.x - p.x
+			var dyy: float = P.y - p.y
+			var d := Vector2(dx, dyy).length()
+			if d > 3:
+				p.x += dx / d * 3.2
+				p.y += dyy / d * 3.2
+	if (p.state == "free" or p.state == "return") and P.alive and not P.entering and p.grab_cd <= 0 and Vector2(p.x - P.x, p.y - P.y).length() < 12:
+		p.state = dock_side(p)
+		audio.play("dock")
+
+
+## Places a pod's model: spins around its long axis, faster in flight; turns around when docked behind.
+func sync_pod(m: Node3D, p: Dictionary) -> void:
+	m.visible = p.state != "none"
+	m.position = Vector3(X(p.x), Y(p.y), 0)
+	if not paused:
+		(m.get_meta("spin") as Node3D).rotation.x += 0.32 if (p.state == "free" or p.state == "return") else 0.09
+		var face := PI if p.state == "back" else 0.0
+		m.rotation.y = lerp_angle(m.rotation.y, face, 0.25)
 
 
 static func charge_lv(c: float) -> int:
@@ -1349,10 +1417,13 @@ func kill_player() -> void:
 	# the pod falls off as a P item drifting back - fly through it after respawning to get it back.
 	P.laser = 0
 	P.speed = maxi(0, P.speed - 1)
-	if pod.state != "none":
-		drop_item(clampf(pod.x, 20.0, W - 10.0), clampf(pod.y, 12.0, PH - 12.0), "P")
-		pod.state = "none"
+	# With two pods only one falls off: the second is lost for good.
+	var lost: Array = pods.filter(func(p): return p.state != "none")
+	if not lost.is_empty():
+		drop_item(clampf(lost[0].x, 20.0, W - 10.0), clampf(lost[0].y, 12.0, PH - 12.0), "P")
 		Diag.once("pod lost")
+	for p in pods:
+		p.state = "none"
 
 
 # ---------- boss ----------
@@ -2047,8 +2118,9 @@ func step() -> void:
 			G.lives -= 1
 			# respawn on the corridor centre: in a tunnel or fortress 63 may be inside a wall
 			P.merge({alive = true, x = -10.0, y = mid_y(G.scroll + 28.0), entering = true, inv = 150, charge_held = false}, true)
-			if pod.state == "free":
-				pod.state = "return"
+			for p in pods:
+				if p.state == "free":
+					p.state = "return"
 	else:
 		if P.inv > 0:
 			P.inv -= 1
@@ -2117,14 +2189,23 @@ func step() -> void:
 			P.ready_lv = 0
 		P.charge_held = ch
 		if hit("pod"):
-			if pod.state == "front" or pod.state == "back":
-				pod.tx = W - 56 if pod.state == "front" else 30.0
-				pod.state = "free"
-				pod.grab_cd = 30
+			# one button for both pods: recall any pod in flight, otherwise launch every docked
+			# pod (the front one forwards, the rear one backwards)
+			var out: Array = pods.filter(func(p): return p.state == "free")
+			if not out.is_empty():
+				for p in out:
+					p.state = "return"
 				audio.play("pod")
-			elif pod.state == "free":
-				pod.state = "return"
-				audio.play("pod")
+			else:
+				var launched := false
+				for p in pods:
+					if p.state == "front" or p.state == "back":
+						p.tx = W - 56 if p.state == "front" else 12.0
+						p.state = "free"
+						p.grab_cd = 30
+						launched = true
+				if launched:
+					audio.play("pod")
 		if not P.exiting and (in_wall(P.x - 4, P.y, 1.5) or in_wall(P.x + 4, P.y, 1.5) or in_wall(P.x, P.y, 1.5)):
 			if P.inv > 0:
 				# invincible (just respawned): slide into the opening instead of dying
@@ -2138,32 +2219,9 @@ func step() -> void:
 			else:
 				kill_player()
 
-	# pod
-	if pod.grab_cd > 0:
-		pod.grab_cd -= 1
-	if pod.hit_cd > 0:
-		pod.hit_cd -= 1
-	match pod.state:
-		"front":
-			pod.x = P.x + 11
-			pod.y = P.y
-		"back":
-			pod.x = P.x - 11
-			pod.y = P.y
-		"free":
-			pod.x += clampf((pod.tx - pod.x) * 0.08, -3, 3)
-			if P.alive:
-				pod.y += (P.y - pod.y) * 0.035
-		"return":
-			var dx: float = P.x - pod.x
-			var dyy: float = P.y - pod.y
-			var d := Vector2(dx, dyy).length()
-			if d > 3:
-				pod.x += dx / d * 3.2
-				pod.y += dyy / d * 3.2
-	if (pod.state == "free" or pod.state == "return") and P.alive and not P.entering and pod.grab_cd <= 0 and Vector2(pod.x - P.x, pod.y - P.y).length() < 12:
-		pod.state = "front" if pod.x >= P.x else "back"
-		audio.play("dock")
+	# pods
+	for p in pods:
+		update_pod(p)
 
 	# player bullets
 	for b in G.pb:
@@ -2416,9 +2474,10 @@ func step() -> void:
 			continue
 		if P.alive and ov(P, e):
 			kill_player()
-		if pod.state != "none" and pod.hit_cd <= 0 and ov(pod, e):
-			dmg_e(e, 1)
-			pod.hit_cd = POD_RAM_CD
+		for p in pods:
+			if p.state != "none" and p.hit_cd <= 0 and ov(p, e) and not e.dead:
+				dmg_e(e, 1)
+				p.hit_cd = POD_RAM_CD
 
 	# boss
 	if G.boss:
@@ -2427,9 +2486,10 @@ func step() -> void:
 			for p in G.bparts:
 				if P.alive and Vector2(P.x - p.x, P.y - p.y).length() < p.r + 2:
 					kill_player()
-				if pod.state != "none" and pod.hit_cd <= 0 and Vector2(pod.x - p.x, pod.y - p.y).length() < p.r + 3.5 and p.kind != "seg" and p.kind != "shield":
-					boss_damage(p, 1)
-					pod.hit_cd = POD_RAM_CD + 2
+				for q in pods:
+					if G.boss and q.state != "none" and q.hit_cd <= 0 and Vector2(q.x - p.x, q.y - p.y).length() < p.r + 3.5 and p.kind != "seg" and p.kind != "shield":
+						boss_damage(p, 1)
+						q.hit_cd = POD_RAM_CD + 2
 		if G.clear_t:
 			G.boss = null
 
@@ -2441,7 +2501,7 @@ func step() -> void:
 		if b.x < -8 - xm or b.x > W + 8 + xm or b.y < -8 or b.y > PH + 8 or in_wall(b.x, b.y, 0):
 			b.dead = true
 			continue
-		if pod.state != "none" and ov(b, pod):
+		if pods.any(func(p): return p.state != "none" and ov(b, p)):
 			b.dead = true
 			spark(b.x, b.y)
 			continue
@@ -2463,10 +2523,12 @@ func step() -> void:
 			add_score(200)
 			if it.kind == "P":
 				if pod.state == "none":
-					pod.state = "front"
-					pod.x = P.x + 11
-					pod.y = P.y
+					dock_pod(pod, "back" if pod2.state == "front" else "front")
 					show_banner("Pod", "Tap top right to launch or recall" if hud.touch.enabled else "Space to launch or recall", 140)
+				elif pod2.state == "none":
+					dock_pod(pod2, "front" if pod.state == "back" else "back")
+					show_banner("Second pod", "Covers your tail · one tap launches both", 140)
+					Diag.once("second pod")
 				elif P.laser < 2:
 					P.laser += 1
 				else:
@@ -2714,13 +2776,8 @@ func _process(_delta: float) -> void:
 			shards.visible = lv == NOVA
 			if not paused:
 				shards.rotation.z += 0.22
-		pod_m.visible = pod.state != "none"
-		pod_m.position = Vector3(X(pod.x), Y(pod.y), 0)
-		if not paused:
-			# spins around its long axis, faster in flight; turns around when docked behind
-			(pod_m.get_meta("spin") as Node3D).rotation.x += 0.32 if (pod.state == "free" or pod.state == "return") else 0.09
-			var face := PI if pod.state == "back" else 0.0
-			pod_m.rotation.y = lerp_angle(pod_m.rotation.y, face, 0.25)
+		sync_pod(pod_m, pod)
+		sync_pod(pod2_m, pod2)
 		for e in G.enemies:
 			sync_e(e)
 		for g in G.gates:
