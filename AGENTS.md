@@ -165,13 +165,17 @@ the pod model spins on its `spin` child around X, the root only turns it to face
 - Charge stages (2026-11-14): `CHARGE_AT` in `main.gd` holds the ticks for LV 1-3 and the Nova
   (stage 4, 4 s, `CHARGE_MAX`). The HUD meter notches come from `Hud.CHARGE_TICKS`: keep the
   two in step. The Nova beam has `nova = true` and burns enemy bullets it overlaps.
-- Look (Guillaume, 2026-11-15): while charging, glowing spiral arms and shards swirl into an orb at
-  the nose (`swirl`, turns pink at the Nova); a pod docked in front spins up instead of hiding
-  behind it. Releasing fires a laser line (`line = true` in `G.pb`) from `beam_src()` (the pod's
-  nose when docked in front) to the first wall or the screen edge: it follows the ship for
-  `BEAM_LIFE` ticks and hits each enemy once. The Nova adds a pink and cyan twister
-  (`Geo.helix`). Review shots of every level:
-  `xvfb-run -a godot --path . --rendering-method gl_compatibility --resolution 1600x720 --script tools/charge_shots.gd -- /tmp/charge`
+- Look (Guillaume, 2026-11-15, after many preview rounds): the laser and the charging ball stay
+  white at every level; only the strands are coloured. Strands per level are `STRANDS`: none at
+  LV 1, white at 2, cyan and white at 3, pink, cyan and white at the Nova. While charging, a
+  white laser ball sits at `beam_src()` with those strands coiled round it (`Geo.ball_coil`),
+  pulsing in out of phase (`sync_charge_fx`); a pod docked in front spins up. Releasing fires a
+  laser line (`line = true` in `G.pb`) to the first wall or the screen edge: it follows the ship
+  for `BEAM_LIFE` ticks and hits each enemy once, and fires corkscrew pulses of the same strands
+  (`Geo.helix`, each with a haze strand), staggered by `PULSE_LAG` so they leave out of phase.
+  He reviews looks as looping animations, not stills: render frames with
+  `xvfb-run -a godot --path . --rendering-method gl_compatibility --resolution 1280x720 --script tools/charge_anim.gd -- /tmp/anim`
+  and assemble a GIF (Pillow); stills of every level: `tools/charge_shots.gd`.
 
 ## Gotchas
 

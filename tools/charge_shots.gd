@@ -1,5 +1,5 @@
 extends SceneTree
-## Review shots of the charge weapon: the charge-up (swirl at the nose, then with the pod
+## Review shots of the charge weapon: the charge-up (halo ring at the nose, then round the pod
 ## docked) and the laser line at every level, including the Nova twister.
 ## xvfb-run -a godot --path . --rendering-method gl_compatibility --resolution 1600x720 --script tools/charge_shots.gd -- OUT_DIR
 

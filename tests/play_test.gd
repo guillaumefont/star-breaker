@@ -58,6 +58,9 @@ func _initialize() -> void:
 	Input.action_press("charge")
 	tick(105)
 	check(main.charge_lv(main.P.charge) == 2, "charging is slower: 105 ticks only reach level 2")
+	main._process(0.016)
+	var on: Array = range(6).filter(func(st): return main.charge_fx.get_child(4 + st).visible)
+	check(on == [2, 5], "at level 2 only the white strand spins round the laser ball")
 	tick(60)
 	check(main.charge_lv(main.P.charge) == 3, "charge reaches level 3")
 	Input.action_release("charge")
@@ -65,12 +68,12 @@ func _initialize() -> void:
 	var beams: Array = main.G.pb.filter(func(b): return b.beam)
 	check(beams.size() == 1 and not beams[0].nova and beams[0].dmg == 18, "releasing charge fires a piercing beam")
 	var line: Dictionary = beams[0]
-	check(line.line and absf(line.sx - (main.P.x + 9)) < 0.01 and line.ex > main.P.x + 60 and line.y == main.P.y,
+	check(line.line and absf(line.sx - (main.P.x + 9)) < 0.01 and line.ex > main.P.x + 60 and absf(line.y - main.P.y - main.NOSE_DY) < 0.01,
 			"the beam is a laser line from the nose across the screen")
 	main.P.y += 6
 	tick()
-	check(line.y == main.P.y and not line.dead, "the laser line follows the ship while it lasts")
-	check(not line.parts.has("tw"), "levels 1 to 3 have no twister")
+	check(absf(line.y - main.P.y - main.NOSE_DY) < 0.01 and not line.dead, "the laser line follows the ship while it lasts")
+	check(line.parts.pulses.size() == 4 * main.PULSES, "a level 3 beam fires cyan and white pulses")
 	tick(main.BEAM_LIFE[3])
 	check(line.dead, "the laser line switches off after its time")
 	check(main.line_fade(0, 20) > main.line_fade(10, 20) and main.line_fade(20, 20) == 0.0, "the line flashes open and narrows away")
@@ -83,8 +86,9 @@ func _initialize() -> void:
 	tick()
 	check(main.charge_lv(main.P.charge) == 4, "holding 4 seconds reaches the Nova stage")
 	main._process(0.016)
-	check(main.swirl.visible and main.charge_orb.material_override == Models.M.nova_orb, "the charge swirl turns pink when the Nova is ready")
-	check(main.swirl.get_children().all(func(n): return n.visible), "the swirl is at its fullest at the Nova stage")
+	check(main.charge_fx.visible and (main.charge_fx.get_child(1) as MeshInstance3D).material_override == Models.glow_mat("dfe9ff"),
+			"the laser ball stays white at the Nova stage")
+	check(main.charge_fx.get_children().all(func(n): return n.visible), "the laser ball has all three strands at the Nova stage")
 	tick(60)
 	check(main.P.charge == main.CHARGE_MAX, "charge stops at the Nova stage")
 	var n_eb: int = main.G.eb.size()
@@ -96,8 +100,22 @@ func _initialize() -> void:
 	var novas: Array = main.G.pb.filter(func(b): return b.beam and b.nova)
 	check(novas.size() == 1 and novas[0].dmg > 18 and novas[0].hh > 4.6, "releasing at the Nova stage fires the Nova lance")
 	main._process(0.016)
-	check(not main.swirl.visible and not main.charge_orb.visible, "the charge swirl goes away once fired")
-	check(novas[0].parts.has("tw"), "the Nova laser has the twister")
+	check(not main.charge_fx.visible, "the charge glow goes away once fired")
+	check(novas[0].parts.has("pulses") and novas[0].parts.pulses.size() == 6 * main.PULSES, "the Nova laser has twister pulses: pink, cyan and white strands and haze")
+	var p0: Node3D = novas[0].parts.pulses[0]
+	main._process(0.016)
+	var px0: float = p0.position.x
+	tick(2)
+	main._process(0.016)
+	check(p0.position.x > px0, "twister pulses travel forward along the beam")
+	tick(4)
+	main._process(0.016)
+	var pink: Node3D = novas[0].parts.pulses[0]
+	var cyan: Node3D = novas[0].parts.pulses[main.PULSES]
+	check(pink.visible and cyan.visible and pink.position.x > cyan.position.x, "each strand pulses out of phase with the others")
+	tick(12)
+	main._process(0.016)
+	check(novas[0].parts.pulses.filter(func(pl): return pl.visible).size() >= 6, "new pulses keep following")
 	tick(8)
 	check(mine.all(func(b): return b.dead), "the Nova lance burns away enemy bullets in its path")
 
@@ -116,6 +134,8 @@ func _initialize() -> void:
 	r0 = spin.rotation.x
 	tick(10)
 	check(absf(spin.rotation.x - r0) / 10.0 > idle * 3.0, "a docked pod spins up while charging")
+	main._process(0.016)
+	check(absf(main.charge_fx.position.x - main.X(main.pod.x + 6)) < 0.01, "the laser ball charges at the docked pod's nose")
 	Input.action_release("charge")
 	tick()
 	var pod_line: Array = main.G.pb.filter(func(b): return b.get("line", false))
