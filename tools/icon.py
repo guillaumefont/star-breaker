@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""Star Breaker app icon ("Straight up", Guillaume's pick 2026-11-15): the real low poly ship
-with its crystal pod docked at the nose, seen from above and pointing straight up, hovering
-over a clean violet-to-orange gradient.
+"""Star Breaker app icon (Guillaume's pick 2026-11-15, "Pod, 3/4"): the game's crystal pod
+alone, seen at a three quarter angle with its ring and pink shards, hovering over a dark violet
+gradient (he asked for a darker background).
 
-The ship is a render of the game's own models: tools/icon_shots.gd writes store/ship-top.png
-(run it again after changing the ship or pod), then this script builds every icon from it.
+The pod is a render of the game's own model: tools/icon_shots.gd writes store/pod.png (run it
+again after changing the pod), then this script builds every icon from it.
 
 Usage (from the repo root): python3 tools/icon.py
 Writes icon.png (256, rounded: project icon and web favicon), icons/icon-192.png (legacy
 launcher icon), icons/adaptive-{background,foreground,monochrome}-432.png (Android adaptive
-layers, the ship stays inside the central safe circle) and store/icon-512.png (square, for
+layers, the pod stays inside the central safe circle) and store/icon-512.png (square, for
 stores and previews). Needs Pillow.
 """
 import os
@@ -21,7 +21,7 @@ SS = 4                  # supersampling
 N = 432 * SS            # adaptive layer canvas (108 dp)
 U = N / 108.0           # one dp
 VIS = 72 * U            # the part a launcher shows (72 dp square, centred)
-TOP, BOTTOM = (0x5a, 0x1a, 0x8a), (0xff, 0x9a, 0x5a)
+TOP, BOTTOM = (0x1c, 0x0c, 0x3c), (0x5a, 0x24, 0x5e)
 
 
 def background():
@@ -33,13 +33,13 @@ def background():
     return col.resize((N, N)).convert('RGBA')
 
 
-def ship(root):
-    """The rendered ship, nose up, 84% of the visible width tall, centred a little low."""
-    im = Image.open(f'{root}/store/ship-top.png').convert('RGBA')
-    im = im.crop(im.getbbox()).rotate(90, resample=Image.BICUBIC, expand=True)
-    h = int(VIS * 0.84)
-    im = im.resize((int(im.size[0] * h / im.size[1]), h), Image.LANCZOS)
-    x, y = int(N / 2 - im.size[0] / 2), int(N / 2 + VIS * 0.02 - im.size[1] / 2)
+def subject(root):
+    """The rendered pod, tilted 20 degrees, 74% of the visible square at its widest, centred."""
+    im = Image.open(f'{root}/store/pod.png').convert('RGBA')
+    im = im.crop(im.getbbox()).rotate(20, resample=Image.BICUBIC, expand=True)
+    s = VIS * 0.74 / max(im.size)
+    im = im.resize((int(im.size[0] * s), int(im.size[1] * s)), Image.LANCZOS)
+    x, y = int(N / 2 - im.size[0] / 2), int(N / 2 - im.size[1] / 2)
     layer = Image.new('RGBA', (N, N), (0, 0, 0, 0))
     layer.alpha_composite(im, (x, y))
     return layer
@@ -47,7 +47,7 @@ def ship(root):
 
 def foreground(sh):
     im = Image.new('RGBA', (N, N), (0, 0, 0, 0))
-    # soft shadow down and to the right, so the ship hovers over the gradient
+    # soft shadow down and to the right, so the pod hovers over the gradient
     shadow = Image.new('RGBA', (N, N), (0, 0, 0, 0))
     shadow.paste((15, 5, 40, 110), mask=sh.getchannel('A'))
     shadow = shadow.transform((N, N), Image.AFFINE, (1, 0, -1.6 * U, 0, 1, -2.3 * U))
@@ -74,7 +74,7 @@ def rounded(full, size):
 
 
 def main(root):
-    sh = ship(root)
+    sh = subject(root)
     bg, fg = background(), foreground(sh)
     os.makedirs(f'{root}/icons', exist_ok=True)
     bg.convert('RGB').resize((432, 432), Image.LANCZOS).save(f'{root}/icons/adaptive-background-432.png')
