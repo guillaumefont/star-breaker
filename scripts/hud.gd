@@ -16,6 +16,10 @@ const C_LANCE := Color("3ff0e0")
 const C_AMBER := Color("ffb547")
 const C_LIME := Color("c8f560")
 const C_VIOLET := Color("8c7bff")
+## Dark text on the bright Play button.
+const C_INK := Color("0b0830")
+## Width of the main menu's left column (logo and mode buttons).
+const MENU_W := 400.0
 const CHARGE_TICKS := [50 / 240.0, 100 / 240.0, 160 / 240.0]
 
 var fonts := {}
@@ -44,6 +48,9 @@ var _banner_tw: Tween
 var _hud: Control
 var _btn_mute: Button
 var _btn_pause: Button
+## Sound on/off on the main menu (the in-game one is hidden there).
+var _btn_menu_mute: Button
+var _title_col: VBoxContainer
 var title_scr: Control
 var over_scr: Control
 var pause_scr: Control
@@ -543,86 +550,159 @@ func _center_col(m: Control, sep := 16) -> VBoxContainer:
 
 
 func _build_title() -> Control:
-	var m := _menu_bg(self)
-	var v := _center_col(m, 22)
-	v.offset_bottom = -54
+	var m := Control.new()
+	m.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	m.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(m)
+	# darken only the left side, where the menu sits; the hero ship stays bright on the right
+	var bg := TextureRect.new()
+	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	bg.stretch_mode = TextureRect.STRETCH_SCALE
+	var g := Gradient.new()
+	var ink := Color(5 / 255.0, 4 / 255.0, 26 / 255.0)
+	g.offsets = PackedFloat32Array([0.0, 0.38, 0.62, 1.0])
+	g.colors = PackedColorArray([Color(ink, 0.82), Color(ink, 0.5), Color(ink, 0.0), Color(ink, 0.0)])
+	var gt := GradientTexture2D.new()
+	gt.gradient = g
+	gt.width = 256
+	gt.height = 4
+	bg.texture = gt
+	m.add_child(bg)
+	# the left column: logo, Play (the campaign), Endless, then device settings
+	var v := _vbox(12)
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.anchor_bottom = 1.0
+	v.offset_left = 92
+	v.offset_right = 92 + MENU_W
+	v.offset_bottom = -20
+	m.add_child(v)
+	_title_col = v
 	var logo := _vbox(0)
 	v.add_child(logo)
-	var sub := _label("SIX WORLDS · ONE STAR", 18, 700, C_TEXT, 8.0)
-	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	logo.add_child(sub)
-	var star := _label("STAR", 72, 800)
-	star.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	star.add_theme_constant_override("line_spacing", -18)
+	var star := _label("STAR", 56, 800, C_TEXT, 10.0)
+	star.add_theme_constant_override("line_spacing", -20)
 	logo.add_child(star)
-	var brk := _grad_label("BREAKER", 72, 800, 0, [C_LANCE, C_VIOLET, C_SPORE])
-	var st := _stack(_halo("BREAKER", 72, 800, C_VIOLET), brk)
-	st.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var brk := _grad_label("BREAKER", 88, 800, 0, [C_LANCE, C_VIOLET, C_SPORE])
+	var st := _stack(_halo("BREAKER", 88, 800, C_VIOLET), brk)
+	st.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	logo.add_child(st)
-	var cards := _hbox(22)
-	v.add_child(cards)
-	cards.add_child(_mode_card("normal", "Normal", "Campaign", "Break through six worlds\nto the heart of the star.", C_LANCE))
-	cards.add_child(_mode_card("endless", "Endless", "No end", "The worlds loop forever,\ntougher every lap.", C_SPORE))
-	select_mode(selected_mode)
-	var kr := _keys([["◀ ▶", "Choose"], ["Enter", "Play"], ["WASD", "Move"], ["Z", "Fire"], ["X", "Charge"], ["Space", "Pod"], ["Esc", "Pause"]], 1000)
-	kr.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var sub := _caps("Six worlds · one star", 12, C_MUTED)
+	logo.add_child(sub)
+	var gap := Control.new()
+	gap.custom_minimum_size.y = 14
+	v.add_child(gap)
+	v.add_child(_play_button())
+	v.add_child(_endless_button())
+	var kr := _keys([["▲ ▼", "Choose"], ["Enter", "Play"]], MENU_W)
+	kr.alignment = FlowContainer.ALIGNMENT_BEGIN
+	kr.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	v.add_child(kr)
 	_key_rows.append(kr)
-	var tr := _keys([["Tap", "A mode to play"], ["Left", "Move"], ["Right, bottom up", "Fire · Charge · Pod"]], 1000)
-	tr.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	v.add_child(tr)
-	_touch_rows.append(tr)
+	select_mode(selected_mode)
 	_build_device_row(m)
+	# sound on/off, top right
+	_btn_menu_mute = _icon_button("mute")
+	_btn_menu_mute.pressed.connect(func(): mute_pressed.emit())
+	_btn_menu_mute.anchor_left = 1.0
+	_btn_menu_mute.anchor_right = 1.0
+	_btn_menu_mute.offset_left = -44 - 30
+	_btn_menu_mute.offset_right = -30
+	_btn_menu_mute.offset_top = 26
+	_btn_menu_mute.offset_bottom = 26 + 44
+	m.add_child(_btn_menu_mute)
 	return m
 
 
-## A big glass card on the main menu that starts its mode when tapped or clicked.
-func _mode_card(key: String, title: String, tag: String, desc: String, col: Color) -> Button:
+## A main menu button that starts its mode when tapped or clicked.
+func _menu_button(key: String, h: float, col: Color) -> Button:
 	var b := Button.new()
 	b.focus_mode = Control.FOCUS_NONE
-	b.custom_minimum_size = Vector2(340, 0)
+	b.custom_minimum_size = Vector2(MENU_W, h)
+	b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	b.mouse_filter = Control.MOUSE_FILTER_STOP
 	b.pressed.connect(func(): mode_chosen.emit(key))
 	b.mouse_entered.connect(func(): select_mode(key))
 	var pad := MarginContainer.new()
 	pad.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	for side in ["left", "right"]:
-		pad.add_theme_constant_override("margin_" + side, 26)
-	pad.add_theme_constant_override("margin_top", 18)
-	pad.add_theme_constant_override("margin_bottom", 18)
+	pad.add_theme_constant_override("margin_left", 26)
+	pad.add_theme_constant_override("margin_right", 24)
 	b.add_child(pad)
-	var v := _vbox(6)
-	v.alignment = BoxContainer.ALIGNMENT_BEGIN
-	pad.add_child(v)
-	var top := _hbox(10)
-	top.alignment = BoxContainer.ALIGNMENT_BEGIN
-	v.add_child(top)
+	_cards[key] = {button = b, col = col}
+	return b
+
+
+## The big Play button: starts the campaign. Filled with the logo's cyan-violet gradient.
+func _play_button() -> Button:
+	var b := _menu_button("normal", 88, C_LANCE)
+	var fill := Control.new()
+	fill.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sm := ShaderMaterial.new()
+	sm.shader = load("res://shaders/round_grad.gdshader")
+	sm.set_shader_parameter("c1", C_LANCE)
+	sm.set_shader_parameter("c2", C_VIOLET)
+	sm.set_shader_parameter("radius", 26.0)
+	fill.material = sm
+	fill.draw.connect(func(): fill.draw_rect(Rect2(Vector2.ZERO, fill.size), Color.WHITE))
+	fill.resized.connect(func(): sm.set_shader_parameter("box", fill.size))
+	b.add_child(fill)
+	b.move_child(fill, 0)
+	var row := _hbox(14)
+	row.alignment = BoxContainer.ALIGNMENT_BEGIN
+	b.get_child(1).add_child(row)
+	var tv := _vbox(-6)
+	tv.alignment = BoxContainer.ALIGNMENT_CENTER
+	tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(tv)
+	tv.add_child(_label("PLAY", 38, 800, C_INK, 3.0))
+	tv.add_child(_caps("Campaign", 11, Color(C_INK, 0.7)))
+	var bv := _vbox(-2)
+	bv.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_child(bv)
+	var bl := _caps("Best", 10, Color(C_INK, 0.7))
+	bl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	bv.add_child(bl)
+	var best := _label("0", 18, 800, C_INK)
+	best.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	bv.add_child(best)
+	_cards.normal.best = best
+	var tri := Control.new()
+	tri.custom_minimum_size = Vector2(40, 40)
+	tri.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	tri.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tri.draw.connect(func():
+		var c := tri.size / 2.0
+		tri.draw_colored_polygon(PackedVector2Array([c + Vector2(-7, -12), c + Vector2(13, 0), c + Vector2(-7, 12)]), C_INK))
+	row.add_child(tri)
+	return b
+
+
+## The smaller Endless button: a dark glass bar with a pink edge.
+func _endless_button() -> Button:
+	var b := _menu_button("endless", 62, C_SPORE)
+	var row := _hbox(14)
+	row.alignment = BoxContainer.ALIGNMENT_BEGIN
+	b.get_child(0).add_child(row)
 	var icon := Control.new()
 	icon.custom_minimum_size = Vector2(44, 28)
 	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	icon.draw.connect(func(): _draw_mode_icon(icon, key, col))
-	top.add_child(icon)
-	var tv := _vbox(-4)
-	tv.alignment = BoxContainer.ALIGNMENT_BEGIN
-	top.add_child(tv)
-	tv.add_child(_caps(tag, 11, col))
-	tv.add_child(_label(title.to_upper(), 34, 800, C_TEXT, 3.0))
-	var d := _label(desc, 15, 500, C_MUTED)
-	v.add_child(d)
-	var br := _hbox(8)
-	br.alignment = BoxContainer.ALIGNMENT_BEGIN
-	v.add_child(br)
-	var bl := _caps("Best", 11)
+	icon.draw.connect(func(): _draw_mode_icon(icon, "endless", C_SPORE))
+	row.add_child(icon)
+	var t := _label("ENDLESS", 22, 800, C_TEXT, 3.0)
+	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	t.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(t)
+	var bl := _caps("Best", 10, C_SPORE)
 	bl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	br.add_child(bl)
-	var best := _label("0", 20, 800, C_TEXT)
-	br.add_child(best)
-	# the card's height follows its content
-	pad.minimum_size_changed.connect(func(): b.custom_minimum_size.y = pad.get_combined_minimum_size().y)
-	b.custom_minimum_size.y = pad.get_combined_minimum_size().y
-	_cards[key] = {button = b, best = best, col = col}
+	row.add_child(bl)
+	var best := _label("0", 16, 800, C_SPORE)
+	best.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(best)
+	_cards.endless.best = best
 	return b
 
 
@@ -648,7 +728,7 @@ func _draw_mode_icon(c: Control, key: String, col: Color) -> void:
 		c.draw_polyline(pts, col, 3.0, true)
 
 
-## Highlights the mode card the keyboard or gamepad will start.
+## Highlights the menu button the keyboard or gamepad will start.
 func select_mode(key: String) -> void:
 	if not _cards.has(key):
 		return
@@ -657,18 +737,24 @@ func select_mode(key: String) -> void:
 		var c: Dictionary = _cards[k]
 		var on: bool = k == key
 		for stn in ["normal", "hover", "pressed", "focus"]:
-			var sb := _glass_style(24, Vector2.ZERO)
-			if on:
-				sb.bg_color = Color(c.col.darkened(0.72), 0.82)
-				sb.border_color = c.col
-				sb.set_border_width_all(2)
-				sb.shadow_color = Color(c.col, 0.35)
-				sb.shadow_size = 22
-				sb.shadow_offset = Vector2(0, 6)
-			if stn == "pressed":
-				sb.bg_color = sb.bg_color.lightened(0.12)
+			var sb := _glass_style(26 if k == "normal" else 20, Vector2.ZERO)
+			if k == "normal":
+				# the gradient fill draws the button; the box only adds the glow
+				sb.bg_color = Color(0, 0, 0, 0)
+				sb.set_border_width_all(0)
+				sb.shadow_color = Color(C_LANCE, 0.4) if on else Color(0, 0, 0, 0.3)
+				sb.shadow_size = 26 if on else 8
+				sb.shadow_offset = Vector2(0, 8)
+			else:
+				sb.bg_color = Color(C_SPORE.darkened(0.8), 0.7) if on else Color(20 / 255.0, 16 / 255.0, 50 / 255.0, 0.6)
+				sb.border_color = Color(C_SPORE, 1.0 if on else 0.45)
+				sb.set_border_width_all(2 if on else 1)
+				sb.shadow_color = Color(C_SPORE, 0.3) if on else Color(0, 0, 0, 0.3)
+				sb.shadow_size = 20 if on else 8
+				if stn == "pressed":
+					sb.bg_color = sb.bg_color.lightened(0.12)
 			c.button.add_theme_stylebox_override(stn, sb)
-		c.button.modulate = Color.WHITE if on else Color(1, 1, 1, 0.78)
+		c.button.modulate = Color.WHITE if on else Color(1, 1, 1, 0.8)
 
 
 func set_bests(normal: String, endless: String) -> void:
@@ -682,28 +768,26 @@ func set_bests(normal: String, endless: String) -> void:
 ## the game was doing when it stopped, with a button to copy the full report.
 func _build_device_row(m: Control) -> void:
 	var col := _vbox(8)
-	col.anchor_left = 0.5
-	col.anchor_right = 0.5
+	col.alignment = BoxContainer.ALIGNMENT_END
 	col.anchor_top = 1.0
 	col.anchor_bottom = 1.0
-	col.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	col.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	col.offset_left = 92
 	col.offset_bottom = -18
 	m.add_child(col)
 	_crash = _glass(16, Vector2(16, 10))
 	_crash.custom_minimum_size.x = 760
-	_crash.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	_crash.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_crash.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	var cv := _vbox(6)
 	_crash.add_child(cv)
 	cv.add_child(_caps("The game closed unexpectedly last time · safe graphics switched on, pick a mode to try again", 11, C_AMBER))
 	_crash_txt = _label("", 12, 500, C_MUTED)
 	_crash_txt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_crash_txt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	cv.add_child(_crash_txt)
 	_crash.hide()
 	col.add_child(_crash)
-	var row := _hbox(8)
+	var row := _hbox(12)
+	row.alignment = BoxContainer.ALIGNMENT_BEGIN
 	col.add_child(row)
 	var copy := _small_button("Copy crash report")
 	copy.pressed.connect(func():
@@ -722,8 +806,8 @@ func _build_device_row(m: Control) -> void:
 	row.add_child(_btn_gfx)
 	_update_gfx()
 	var ver := _label("Build " + str(ProjectSettings.get_setting("application/config/version", "dev")), 11, 500, Color(C_MUTED, 0.6))
-	ver.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	col.add_child(ver)
+	ver.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(ver)
 
 
 func _small_button(text: String) -> Button:
@@ -943,6 +1027,7 @@ func fade(on: bool) -> void:
 func set_muted_icon(m: bool) -> void:
 	muted = m
 	_btn_mute.queue_redraw()
+	_btn_menu_mute.queue_redraw()
 
 
 func banner(t: String, sub: String, warn := false) -> void:
@@ -996,7 +1081,7 @@ func card_at(p: Vector2) -> String:
 
 ## True when a touch at `p` lands on one of the HUD buttons (so it must not fire the ship).
 func blocks_touch(p: Vector2) -> bool:
-	for b in [_btn_mute, _btn_pause] + _small_buttons:
+	for b in [_btn_mute, _btn_pause, _btn_menu_mute] + _small_buttons:
 		if b.is_visible_in_tree() and b.get_global_rect().grow(8).has_point(p):
 			return true
 	return false

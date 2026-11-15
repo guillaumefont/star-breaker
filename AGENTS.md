@@ -61,6 +61,13 @@ Close-ups of the player ship and pod (side, three-quarter, top, rear, pod launch
 Hulls are lofted with `Geo.loft()` (cross-sections along X) and baked with `Geo.build_wound()`;
 the pod model spins on its `spin` child around X, the root only turns it to face backwards.
 
+## Main menu
+
+- Design "A, Hero ship" (Guillaume's pick, 2026-11-15): the real ship with its pod docked at
+  the nose hangs off the camera on the right (`main._add_menu_ship()`, shown only in `title`),
+  and the left column has the logo, a big gradient Play button (the campaign) and a smaller
+  Endless button. Keep the left side for UI and the right for the ship on every screen shape.
+
 ## App icon
 
 - Icon ("Straight up", Guillaume's pick 2026-11-15, after many rounds): the real ship with its
