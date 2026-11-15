@@ -135,7 +135,8 @@ func _initialize() -> void:
 	tick(10)
 	check(absf(spin.rotation.x - r0) / 10.0 > idle * 3.0, "a docked pod spins up while charging")
 	main._process(0.016)
-	check(absf(main.charge_fx.position.x - main.X(main.pod.x + 6)) < 0.01, "the laser ball charges at the docked pod's nose")
+	check(absf(main.charge_fx.position.x - main.X(main.pod.x)) < 0.01 and not main.charge_fx.get_child(3).visible
+			and main.charge_fx.get_child(4 + 2).visible, "with a pod docked the strands coil round the pod, with no ball")
 	Input.action_release("charge")
 	tick()
 	var pod_line: Array = main.G.pb.filter(func(b): return b.get("line", false))

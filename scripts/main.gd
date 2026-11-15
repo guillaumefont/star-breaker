@@ -1249,8 +1249,11 @@ func sync_pod(m: Node3D, p: Dictionary) -> void:
 ## They are the strands the beam will fire at that level.
 func sync_charge_fx(lv: int) -> void:
 	var k: float = float(P.charge) / CHARGE_MAX
-	var src := beam_src()
-	charge_fx.position = Vector3(X(src.x + 1.0), Y(src.y), 2)
+	# with a pod docked at the nose there is no ball: the strands coil round the spinning pod
+	var fp := front_pod()
+	var podded := not fp.is_empty()
+	var src := Vector2(fp.x, fp.y) if podded else beam_src() + Vector2(1.0, 0)
+	charge_fx.position = Vector3(X(src.x), Y(src.y), 2 if not podded else 0)
 	if not paused:
 		charge_ph += 0.12 + k * 0.25
 	var rad := 1.1 + k * 2.2
@@ -1262,6 +1265,10 @@ func sync_charge_fx(lv: int) -> void:
 	glow.scale = Vector3.ONE * rad * 2.4 * (1.0 + sin(tt * 0.9) * 0.1)
 	core.scale = Vector3.ONE * rad * 1.0 * (1.0 + sin(tt * 1.7) * 0.12)
 	ball.scale = Vector3.ONE * rad * 0.5
+	for n in [glow, core, ball]:
+		n.visible = not podded
+	if podded:
+		haze.scale = Vector3(1.6, 1, 1) * (5.0 + k * 4.0) * 2.0
 	# each strand comes as corkscrew pulses closing in on the ball, staggered like the beam's
 	var on: Array = STRANDS[lv]
 	for st in 6:
@@ -1271,12 +1278,16 @@ func sync_charge_fx(lv: int) -> void:
 			continue
 		# each pulse closes in from a little way out until it hugs the ball, then starts again
 		var ph := fposmod((P.charge + PULSE_LAG[st] * 2.0) / CHARGE_PULSE, 1.0)
-		var r := rad * (0.75 + 0.55 * (1.0 - ph) * (1.0 - ph)) * (1.0 if st < 3 else 1.1)
+		var hug := 0.75 + 0.55 * (1.0 - ph) * (1.0 - ph)
+		var r := (POD_COIL_R * (0.85 + 0.15 * k) if podded else rad) * (hug if not podded else 0.75 + hug * 0.3) * (1.0 if st < 3 else 1.1)
 		m.position = Vector3.ZERO
-		m.scale = Vector3.ONE * r
+		# round the pod the coil is stretched along its length
+		m.scale = Vector3(r * (1.5 if podded else 1.0), r, r)
 		m.rotation = Vector3(-charge_ph * (1.0 + 0.3 * (st % 3)), 0, 0.3 * (st % 3))
 
 
+## Radius of the charge strands coiled round a docked pod (its crystal and shards).
+const POD_COIL_R := 4.2
 ## Ticks for one charge-up pulse to close in on the laser ball.
 const CHARGE_PULSE := 24.0
 ## Strands of the charge laser at each level: 0 pink, 1 cyan, 2 white.
