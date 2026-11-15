@@ -51,6 +51,7 @@ func _initialize() -> void:
 	check(hud._btn_gfx.is_visible_in_tree() and hud._crash != null, "graphics toggle and crash notice stay on the menu")
 	main._process(1.0 / 60.0)
 	check(main.menu_ship.visible and main.menu_ship.get_parent() == main.camera, "the menu shows the big hero ship and pod")
+	check(absf(main.menu_pod.position.y - (-0.55)) < 0.01 and main.menu_pod.position.x > 7.6, "the menu's pod sits on the ship's nose tip")
 	check(hud._btn_menu_mute.is_visible_in_tree(), "the menu has a sound button")
 	var muted0: bool = main.muted
 	hud._btn_menu_mute.pressed.emit()
