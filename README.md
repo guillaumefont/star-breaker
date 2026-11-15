@@ -1,3 +1,5 @@
+> **This game moved to [guillaumefont/games](https://github.com/guillaumefont/games/tree/main/star-breaker).** Builds are published at https://guillaumefont.github.io/games/star-breaker/ and installed test builds update from there.
+
 # Star Breaker
 
 **[▶ Play in the browser](https://guillaumefont.github.io/star-breaker/)** · **[⬇ Download the Android APK](https://guillaumefont.github.io/star-breaker/star-breaker.apk)**
