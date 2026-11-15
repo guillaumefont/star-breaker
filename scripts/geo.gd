@@ -351,6 +351,7 @@ static func disc(r: float, seg: int) -> Array:
 	return tris
 
 
+
 ## A tube wound in a helix along +X from x = 0 to `length` (the Nova lance's twister).
 ## The helix radius widens from half of `r` at the start to `r` over the first quarter.
 static func helix(length: float, r: float, pitch: float, tube: float, sides: int, phase := 0.0) -> Array:
@@ -381,22 +382,31 @@ static func helix(length: float, r: float, pitch: float, tube: float, sides: int
 	return tris
 
 
-## Flat spiral arms in the XY plane, radius 1, curling in towards the centre (the charge swirl).
-## Each arm is a ribbon that is widest in its middle and tapers at both ends.
-static func spiral(arms: int, turns: float, width: float, steps: int) -> Array:
+
+## A tube coiled round a unit sphere from pole to pole about the X axis (like yarn on a ball).
+static func ball_coil(turns: float, tube: float, steps: int, sides: int, phase := 0.0) -> Array:
+	var rings := []
+	var mids := []
+	for i in steps + 1:
+		var u := float(i) / steps
+		var th := lerpf(0.15, PI - 0.15, u)
+		var ph := phase + u * turns * TAU
+		var c := Vector3(cos(th), sin(th) * cos(ph), sin(th) * sin(ph))
+		var nxt := Vector3(cos(th + 0.01), sin(th + 0.01) * cos(ph + 0.01 * turns * TAU / (PI - 0.3)), sin(th + 0.01) * sin(ph + 0.01 * turns * TAU / (PI - 0.3)))
+		var tan := (nxt - c).normalized()
+		var nrm := c.normalized()
+		var bin := tan.cross(nrm).normalized()
+		var ring := []
+		for s in sides:
+			var b := float(s) / sides * TAU
+			ring.append(c + (nrm * cos(b) + bin * sin(b)) * tube)
+		rings.append(ring)
+		mids.append(c)
 	var tris := []
-	for k in arms:
-		var inner := []
-		var outer := []
-		for i in steps + 1:
-			var u := float(i) / steps
-			var a := k * TAU / arms + u * turns * TAU
-			var r := 0.12 + 0.88 * u
-			var w := width * sin(u * PI) * 0.5
-			var d := Vector3(cos(a), sin(a), 0)
-			inner.append(d * maxf(0.0, r - w))
-			outer.append(d * (r + w))
-		for i in steps:
-			tris.append([inner[i], outer[i], outer[i + 1]])
-			tris.append([inner[i], outer[i + 1], inner[i + 1]])
+	for i in steps:
+		var m: Vector3 = ((mids[i] as Vector3) + (mids[i + 1] as Vector3)) / 2.0
+		for s in sides:
+			var t := (s + 1) % sides
+			tris.append(orient([rings[i][s], rings[i + 1][s], rings[i + 1][t]], m))
+			tris.append(orient([rings[i][s], rings[i + 1][t], rings[i][t]], m))
 	return tris
