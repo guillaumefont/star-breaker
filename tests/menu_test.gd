@@ -49,6 +49,19 @@ func _initialize() -> void:
 	check(hud._cards.has("normal") and hud._cards.has("endless"), "menu offers Normal and Endless")
 	check(hud.selected_mode == "normal", "Normal is picked by default")
 	check(hud._btn_gfx.is_visible_in_tree() and hud._crash != null, "graphics toggle and crash notice stay on the menu")
+	main._process(1.0 / 60.0)
+	check(main.menu_ship.visible and main.menu_ship.get_parent() == main.camera, "the menu shows the big hero ship and pod")
+	check(hud._btn_menu_mute.is_visible_in_tree(), "the menu has a sound button")
+	var muted0: bool = main.muted
+	hud._btn_menu_mute.pressed.emit()
+	tick(1, false)
+	check(main.muted != muted0, "the menu's sound button mutes")
+	hud._btn_menu_mute.pressed.emit()
+	tick(1, false)
+	var pr: Rect2 = hud._cards.normal.button.get_global_rect()
+	var er: Rect2 = hud._cards.endless.button.get_global_rect()
+	check(pr.size.y > er.size.y and er.position.y > pr.position.y, "Play sits above the smaller Endless button")
+	check(hud.card_at(pr.get_center()) == "normal" and hud.card_at(er.get_center()) == "endless", "a tap on Play or Endless picks that mode")
 
 	# keyboard / gamepad: right picks Endless, left back to Normal
 	press("right")
@@ -66,6 +79,7 @@ func _initialize() -> void:
 	press("fire")
 	tick(1, false)
 	check(main.mode == "play" and main.endless() and main.G.world == 0 and main.G.lap == 0, "Fire starts the picked mode (Endless)")
+	check(not main.menu_ship.visible, "the hero ship leaves with the menu")
 	check(main.hud._banner_s.text.contains("LAP 1"), "Endless banner shows the lap (%s)" % main.hud._banner_s.text)
 
 	# Endless loops the worlds and gets harder

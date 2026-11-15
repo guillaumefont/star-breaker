@@ -69,6 +69,9 @@ var audio: Sfx
 var ship: Node3D
 var pod_m: Node3D
 var ship_glow: MeshInstance3D
+## The big ship and pod on the right of the main menu; a child of the camera.
+var menu_ship: Node3D
+var menu_pod: Node3D
 var muzzle_s: MeshInstance3D
 var charge_orb: MeshInstance3D
 var nova_orb: Node3D  ## the pink shell that grows round the orb on the way to the Nova stage
@@ -287,6 +290,7 @@ func _setup_world() -> void:
 	ship = Models.ship()
 	world.add_child(ship)
 	ship.visible = false
+	_add_menu_ship()
 	pod_m = Models.pod()
 	world.add_child(pod_m)
 	pod_m.visible = false
@@ -359,6 +363,36 @@ func _warm_up() -> void:
 		await get_tree().process_frame
 	w.queue_free()
 	Diag.note("WARM", "%d objects" % (list.size() + 1))
+
+
+## The main menu's hero: the real ship with its crystal pod docked at the nose, seen in
+## three-quarter view on the right of the screen. It hangs off the camera so it stays put.
+func _add_menu_ship() -> void:
+	menu_ship = Models.ship()
+	var gl := Models.glow("ff9a40", 9)
+	gl.position = Vector3(-9, 0, 0)
+	menu_ship.add_child(gl)
+	menu_pod = Models.pod()
+	menu_pod.position = Vector3(11.5, 0, 0)
+	menu_pod.add_child(Models.glow("3ff0e0", 9))
+	menu_ship.add_child(menu_pod)
+	camera.add_child(menu_ship)
+	_place_menu_ship()
+
+
+func _place_menu_ship() -> void:
+	var vs := get_viewport().get_visible_rect().size if is_inside_tree() else Vector2(1280, 720)
+	var aspect := vs.x / maxf(vs.y, 1.0)
+	# 52 units in front of the camera, centred about 70% of the way across the screen;
+	# smaller on narrow screens so it keeps clear of the menu on the left
+	var half_w := 52.0 * tan(deg_to_rad(camera.fov / 2.0)) * aspect
+	var k := clampf(aspect / 1.9, 0.62, 1.0)
+	var bob := sin(tt * 0.035) * 0.5
+	menu_ship.scale = Vector3.ONE * k
+	menu_ship.position = Vector3(half_w * 0.38 - 3.0 * (1.0 - k), -2.5 + bob, -52.0)
+	menu_ship.rotation = Vector3(0.3 + sin(tt * 0.021) * 0.05, -0.95, 0.16 + sin(tt * 0.027) * 0.04)
+	(menu_pod.get_meta("spin") as Node3D).rotation.x = 0.35 + tt * 0.02
+	(menu_ship.get_meta("flame") as Node3D).scale = Vector3(0.8 + randf() * 0.4, 1, 1)
 
 
 func _add_backdrop() -> void:
@@ -2592,6 +2626,9 @@ func _process(_delta: float) -> void:
 		r.rotation.x += spin
 		r.rotation.y += spin
 	planet.rotation.y += 0.0008
+	menu_ship.visible = mode == "title"
+	if menu_ship.visible:
+		_place_menu_ship()
 	if not G.is_empty() and (mode == "play" or mode == "over"):
 		update_chunks(G.scroll)
 		ship.visible = P.alive and not (P.inv > 0 and (tt >> 2) % 2)
