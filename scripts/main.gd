@@ -80,7 +80,8 @@ var menu_ship: Node3D
 var menu_pod: Node3D
 var muzzle_s: MeshInstance3D
 var charge_orb: MeshInstance3D
-var nova_orb: Node3D  ## the pink shell that grows round the orb on the way to the Nova stage
+var swirl: Node3D  ## shards spiralling into the charge orb while Charge is held
+var swirl_ph := 0.0
 var stars: Array = []
 var planet: MeshInstance3D
 var far_rocks: Array = []
@@ -373,20 +374,17 @@ func _setup_world() -> void:
 	charge_orb.visible = false
 	charge_orb.add_child(Models.glow("3ff0e0", 2.2))
 	world.add_child(charge_orb)
-	nova_orb = Node3D.new()
-	nova_orb.visible = false
-	var shell := Models.mesh(Models.geo("orb", func(): return Geo.ico(1, 1)), Models.M.nova_orb)
-	nova_orb.add_child(shell)
-	nova_orb.add_child(Models.glow("ff4fa3", 3.0))
-	var shards := Node3D.new()
-	for i in 3:
-		var a := i * TAU / 3.0
-		var sh := Models.mesh(Models.geo("pt", func(): return Geo.tetra(1)), Models.M.nova, Vector3(cos(a), sin(a), 0) * 1.7)
-		sh.scale = Vector3.ONE * 0.32
-		shards.add_child(sh)
-	nova_orb.add_child(shards)
-	nova_orb.set_meta("shards", shards)
-	world.add_child(nova_orb)
+	swirl = Node3D.new()
+	swirl.visible = false
+	for i in SWIRL_N:
+		var sh := Models.mesh(Models.geo("pt", func(): return Geo.tetra(1)), Models.M.crystal_c)
+		swirl.add_child(sh)
+	# the vortex: three glowing arms curling into the orb, tilted a little towards the camera
+	var arms := Models.mesh(Geo.cached("swirl", func(): return Geo.build_facing(Geo.spiral(3, 0.9, 0.16, 36), Vector3.BACK)), Models.M.charge_orb)
+	arms.rotation.y = -0.5
+	swirl.add_child(arms)
+	swirl.set_meta("arms", arms)
+	world.add_child(swirl)
 
 
 ## Draws one of everything the game can show (every enemy, bullet, effect, item, the boss
@@ -880,7 +878,7 @@ func teardown() -> void:
 	pod_m.visible = false
 	pod2_m.visible = false
 	charge_orb.visible = false
-	nova_orb.visible = false
+	swirl.visible = false
 	muzzle_s.visible = false
 	hud.hide_banner()
 	hud.show_hints(false)
@@ -1242,7 +1240,11 @@ func sync_pod(m: Node3D, p: Dictionary) -> void:
 	m.visible = p.state != "none"
 	m.position = Vector3(X(p.x), Y(p.y), 0)
 	if not paused:
-		(m.get_meta("spin") as Node3D).rotation.x += 0.32 if (p.state == "free" or p.state == "return") else 0.09
+		var spin := 0.32 if (p.state == "free" or p.state == "return") else 0.09
+		# a pod docked at the nose spins up while Charge is held
+		if p.state == "front" and P.alive and P.charge > 10:
+			spin += 0.75 * float(P.charge) / CHARGE_MAX
+		(m.get_meta("spin") as Node3D).rotation.x += spin
 		var face := PI if p.state == "back" else 0.0
 		m.rotation.y = lerp_angle(m.rotation.y, face, 0.25)
 
@@ -1254,29 +1256,64 @@ static func charge_lv(c: float) -> int:
 	return 0
 
 
+## The pod docked at the ship's nose, or an empty dictionary.
+func front_pod() -> Dictionary:
+	for p in pods:
+		if p.state == "front":
+			return p
+	return {}
+
+
+## Where the laser line leaves from: the nose of the pod docked in front, else the ship's.
+func beam_src() -> Vector2:
+	var fp := front_pod()
+	if not fp.is_empty():
+		return Vector2(fp.x + 5, fp.y)
+	return Vector2(P.x + 9, P.y)
+
+
+## Shards in the charge swirl.
+const SWIRL_N := 16
+## Ticks the laser line stays on, per charge level.
+const BEAM_LIFE := [0, 12, 16, 20, 40]
+## Length the Nova twister mesh is built at (it is squeezed to fit a shorter beam).
+const TWIST_LEN := 300.0
+
+
+## Releasing Charge unleashes a laser line from the nose (or the docked pod) to the edge of the
+## screen or the first wall. It follows the ship while it lasts and hits each enemy once.
+## Thicker per level; the Nova (level 4) adds a pink and cyan twister round the beam.
 func fire_beam(lv: int) -> void:
-	var len: float = [0.0, 14.0, 22.0, 34.0, 60.0][lv]
 	var hh: float = [0.0, 1.6, 2.8, 4.6, 7.5][lv]
 	var nova := lv == NOVA
-	var b := {x = P.x + 6 + len / 2.0, y = P.y, vx = 6.5 if nova else 5.5, vy = 0.0, hw = len / 2.0, hh = hh,
-		dmg = [0, 4, 9, 18, 40][lv], beam = true, nova = nova, hits = {}, dead = false}
+	var src := beam_src()
+	var b := {x = src.x, y = src.y, vx = 0.0, vy = 0.0, hw = 0.5, hh = hh, dmg = [0, 4, 9, 18, 40][lv], beam = true, line = true,
+		nova = nova, hits = {}, dead = false, t = 0, life = BEAM_LIFE[lv], sx = src.x, ex = src.x, wall = false}
 	var g := Node3D.new()
-	var c := Models.mesh(Models.geo("bo", func(): return Geo.octa(0.5)), Models.M.nova if nova else Models.M.beam)
-	c.scale = Vector3(len * 1.3, hh * 1.6, hh * 1.6)
-	var o := Models.mesh(Models.geo("bo", func(): return Geo.octa(0.5)), Models.M.nova_glow if nova else Models.M.beam_glow)
-	o.scale = Vector3(len * 1.6 + 6, hh * 3, hh * 3)
-	g.add_child(c)
-	g.add_child(o)
+	var rod := Models.geo("bline", func(): return Geo.xf(Geo.cyl(0.5, 0.5, 1.0, 6), Transform3D(Basis(Vector3.BACK, PI / 2), Vector3(0.5, 0, 0))))
+	var core := Models.mesh(rod, Models.M.nova if nova else Models.M.beam)
+	var sheath := Models.mesh(rod, Models.M.nova_glow if nova else Models.M.beam_glow)
+	var col := "ff4fa3" if nova else "3ff0e0"
+	var haze := Models.glow(col, 1.0)
+	var flare := Models.glow(col, 1.0)
+	var tip := Models.glow(col, 1.0)
+	for n in [core, sheath, haze, flare, tip]:
+		g.add_child(n)
+	var parts := {core = core, sheath = sheath, haze = haze, flare = flare, tip = tip}
 	if nova:
-		# a cyan sheath round the pink-white core, so the Nova reads as the lance's big sister
-		var sh := Models.mesh(Models.geo("bo", func(): return Geo.octa(0.5)), Models.M.beam_glow)
-		sh.scale = Vector3(len * 1.75 + 10, hh * 4.2, hh * 4.2)
-		g.add_child(sh)
-	var gl := Models.glow("ff4fa3" if nova else "3ff0e0", hh * 5.0)
-	gl.scale = Vector3(len * 1.4, hh * 5.0, 1)
-	g.add_child(gl)
+		# the twister: two strands, pink and cyan, corkscrewing round the beam
+		var tw := Node3D.new()
+		for k in 2:
+			var strand := Models.mesh(Geo.cached("twist%d" % k, func(): return Geo.build_wound(Geo.helix(TWIST_LEN, 10.0, 34.0, 1.1, 4, k * PI))),
+					Models.M.twist_a if k == 0 else Models.M.twist_b)
+			tw.add_child(strand)
+		g.add_child(tw)
+		parts.tw = tw
+	b.parts = parts
 	b.m = g
 	world.add_child(g)
+	aim_line(b)
+	sync_line(b)
 	G.pb.append(b)
 	Diag.once("nova" if nova else "beam")
 	audio.play("beam", lv)
@@ -1284,7 +1321,52 @@ func fire_beam(lv: int) -> void:
 	if nova:
 		muzzle = 12
 		for i in 8:
-			spark(P.x + 8 + randf_range(-3, 3), P.y + randf_range(-6, 6))
+			spark(src.x + randf_range(-3, 3), src.y + randf_range(-6, 6))
+
+
+## Points a laser line from its source to the first wall (or past the screen edge).
+func aim_line(b: Dictionary) -> void:
+	var src := beam_src()
+	var far := W + xm + 8.0
+	var ex := src.x
+	while ex < far and not in_wall(ex, src.y, 0):
+		ex += 2.5
+	b.sx = src.x
+	b.ex = maxf(ex, src.x + 1.0)
+	b.y = src.y
+	b.x = (b.sx + b.ex) / 2.0
+	b.hw = (b.ex - b.sx) / 2.0
+	b.wall = ex < far
+
+
+## Thickness of a laser line over its life: a flash as it opens, then it narrows away.
+static func line_fade(t: int, life: int) -> float:
+	var f := 1.0 + maxf(0.0, 3.0 - t) * 0.15
+	return f * clampf((life - t) / 8.0, 0.0, 1.0)
+
+
+func sync_line(b: Dictionary) -> void:
+	var p: Dictionary = b.parts
+	var len: float = b.ex - b.sx
+	var f := line_fade(b.t, b.life)
+	var hh: float = b.hh
+	var wide := 0.65 if b.nova else 1.0  # the Nova keeps a slim core so its twister shows
+	(b.m as Node3D).position = Vector3(X(b.sx), Y(b.y), 0)
+	(p.core as Node3D).scale = Vector3(len, hh * 0.8 * wide * f + 0.01, hh * 0.8 * wide * f + 0.01)
+	(p.sheath as Node3D).scale = Vector3(len, hh * 1.9 * wide * f + 0.01, hh * 1.9 * wide * f + 0.01)
+	var haze: Node3D = p.haze
+	haze.position = Vector3(len / 2.0, 0, -0.5)
+	haze.scale = Vector3(len * 1.1, hh * 4.0 * wide * f + 0.01, 1)
+	var flare: Node3D = p.flare
+	var fs := hh * (4.0 + sin(b.t * 1.7)) * f + 0.01
+	flare.scale = Vector3(fs * 1.3, fs, 1)
+	var tip: Node3D = p.tip
+	tip.visible = b.wall
+	tip.position = Vector3(len, 0, 1)
+	tip.scale = Vector3.ONE * (hh * 3.5 * f + 0.01)
+	if p.has("tw"):
+		var tw: Node3D = p.tw
+		tw.scale = Vector3(len / TWIST_LEN, f, f)
 
 
 # ---------- fx ----------
@@ -2226,8 +2308,19 @@ func step() -> void:
 
 	# player bullets
 	for b in G.pb:
-		b.x += b.vx
-		b.y += b.vy
+		if b.get("line", false):
+			b.t += 1
+			if b.t >= b.life or not P.alive:
+				b.dead = true
+				continue
+			aim_line(b)
+			if b.parts.has("tw"):
+				(b.parts.tw as Node3D).rotation.x -= 0.32
+			if b.wall and b.t % 4 == 0:
+				spark(b.ex, b.y)
+		else:
+			b.x += b.vx
+			b.y += b.vy
 		if b.x > W + 30 + xm or b.x < -30 - xm or b.y < -10 or b.y > PH + 10:
 			b.dead = true
 			continue
@@ -2763,20 +2856,43 @@ func _process(_delta: float) -> void:
 			muzzle_s.position = Vector3(X(P.x + 10), Y(P.y), 2)
 			var ms := 5.0 + muzzle * 1.5
 			muzzle_s.scale = Vector3(ms, ms, 1)
-		charge_orb.visible = P.alive and P.charge > 14
-		charge_orb.position = Vector3(X(P.x + 9), Y(P.y), 1)
-		var co: float = minf(P.charge, CHARGE_AT[3]) / float(CHARGE_AT[3])
-		charge_orb.scale = Vector3.ONE * (0.8 + co * 3.0) * (1.0 + sin(tt * 0.8) * 0.2 if lv >= 3 else 1.0)
-		# past stage 3 a pink shell swells round the orb until the Nova is ready, then throbs
-		nova_orb.visible = charge_orb.visible and lv >= 3
-		if nova_orb.visible:
-			var nk: float = clampf(float(P.charge - CHARGE_AT[3]) / (CHARGE_MAX - CHARGE_AT[3]), 0.0, 1.0)
-			nova_orb.position = charge_orb.position + Vector3(0.8, 0, 0)
-			nova_orb.scale = Vector3.ONE * (1.8 + nk * 2.4) * (1.0 + sin(tt * 1.3) * 0.16 if lv == NOVA else 1.0)
-			var shards: Node3D = nova_orb.get_meta("shards")
-			shards.visible = lv == NOVA
+		# charging: shards spiral into an orb at the nose (or the docked pod's nose), faster and
+		# wider per level; they turn pink once the Nova is ready
+		charge_orb.visible = P.alive and P.charge > 10
+		swirl.visible = charge_orb.visible
+		if charge_orb.visible:
+			var k: float = float(P.charge) / CHARGE_MAX
+			var src := beam_src()
+			var nova_ready := lv == NOVA
+			var throb := 1.0 + sin(tt * 1.1) * 0.18 if nova_ready else 1.0
+			charge_orb.position = Vector3(X(src.x + 1.5), Y(src.y), 1)
+			charge_orb.scale = Vector3.ONE * (0.6 + k * 2.4) * throb
+			charge_orb.material_override = Models.M.nova_orb if nova_ready else Models.M.charge_orb
+			swirl.position = charge_orb.position
 			if not paused:
-				shards.rotation.z += 0.22
+				swirl_ph += 0.012 + k * 0.03
+			# smaller round a docked pod, so its spin-up still shows
+			var rad := (5.0 + k * 7.0) * (0.75 if not front_pod().is_empty() else 1.0)
+			var shown := 4 + lv * 3
+			var arms: MeshInstance3D = swirl.get_meta("arms")
+			arms.scale = Vector3.ONE * rad
+			arms.material_override = Models.M.nova_orb if nova_ready else Models.M.charge_orb
+			if not paused:
+				# turns so the arms trail behind and wind inwards
+				arms.rotate_object_local(Vector3.BACK, 0.06 + k * 0.16)
+			for i in SWIRL_N:
+				var sh: MeshInstance3D = swirl.get_child(i)
+				sh.visible = i < shown
+				if not sh.visible:
+					continue
+				var ph := fposmod(swirl_ph + float(i) / shown, 1.0)
+				var r := rad * (1.0 - ph)
+				var a := i * TAU / shown + ph * TAU * 1.4
+				sh.position = Vector3(cos(a) * r * 0.9, sin(a) * r, cos(a) * r * 0.45)
+				sh.scale = Vector3.ONE * (0.35 + 0.9 * (1.0 - ph)) * (1.0 + k * 0.4)
+				sh.rotation = Vector3(a, a * 0.7, 0)
+				sh.material_override = (Models.M.crystal_m if i % 2 else Models.M.nova) if nova_ready \
+						else (Models.M.crystal_c if i % 2 else Models.M.beam)
 		sync_pod(pod_m, pod)
 		sync_pod(pod2_m, pod2)
 		for e in G.enemies:
@@ -2784,7 +2900,10 @@ func _process(_delta: float) -> void:
 		for g in G.gates:
 			sync_gate(g)
 		for b in G.pb:
-			b.m.position = Vector3(X(b.x), Y(b.y), 0)
+			if b.get("line", false):
+				sync_line(b)
+			else:
+				b.m.position = Vector3(X(b.x), Y(b.y), 0)
 		for b in G.eb:
 			b.m.position = Vector3(X(b.x), Y(b.y), 1)
 			if not paused:

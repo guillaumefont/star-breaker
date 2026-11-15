@@ -64,7 +64,17 @@ func _initialize() -> void:
 	tick()
 	var beams: Array = main.G.pb.filter(func(b): return b.beam)
 	check(beams.size() == 1 and not beams[0].nova and beams[0].dmg == 18, "releasing charge fires a piercing beam")
-	tick(40)
+	var line: Dictionary = beams[0]
+	check(line.line and absf(line.sx - (main.P.x + 9)) < 0.01 and line.ex > main.P.x + 60 and line.y == main.P.y,
+			"the beam is a laser line from the nose across the screen")
+	main.P.y += 6
+	tick()
+	check(line.y == main.P.y and not line.dead, "the laser line follows the ship while it lasts")
+	check(not line.parts.has("tw"), "levels 1 to 3 have no twister")
+	tick(main.BEAM_LIFE[3])
+	check(line.dead, "the laser line switches off after its time")
+	check(main.line_fade(0, 20) > main.line_fade(10, 20) and main.line_fade(20, 20) == 0.0, "the line flashes open and narrows away")
+	tick(20)
 
 	# Nova: the extra fourth stage after 4 seconds; a bigger beam that burns enemy bullets away
 	Input.action_press("charge")
@@ -72,7 +82,9 @@ func _initialize() -> void:
 	check(main.charge_lv(main.P.charge) == 3, "the Nova stage isn't ready a tick early")
 	tick()
 	check(main.charge_lv(main.P.charge) == 4, "holding 4 seconds reaches the Nova stage")
-	check(main.nova_orb.visible and (main.nova_orb.get_meta("shards") as Node3D).visible, "a pink shell with shards shows the Nova is ready")
+	main._process(0.016)
+	check(main.swirl.visible and main.charge_orb.material_override == Models.M.nova_orb, "the charge swirl turns pink when the Nova is ready")
+	check(main.swirl.get_children().all(func(n): return n.visible), "the swirl is at its fullest at the Nova stage")
 	tick(60)
 	check(main.P.charge == main.CHARGE_MAX, "charge stops at the Nova stage")
 	var n_eb: int = main.G.eb.size()
@@ -83,7 +95,9 @@ func _initialize() -> void:
 	tick()
 	var novas: Array = main.G.pb.filter(func(b): return b.beam and b.nova)
 	check(novas.size() == 1 and novas[0].dmg > 18 and novas[0].hh > 4.6, "releasing at the Nova stage fires the Nova lance")
-	check(not main.nova_orb.visible, "the Nova shell goes away once fired")
+	main._process(0.016)
+	check(not main.swirl.visible and not main.charge_orb.visible, "the charge swirl goes away once fired")
+	check(novas[0].parts.has("tw"), "the Nova laser has the twister")
 	tick(8)
 	check(mine.all(func(b): return b.dead), "the Nova lance burns away enemy bullets in its path")
 
@@ -96,6 +110,17 @@ func _initialize() -> void:
 	tick(10)
 	check(absf(spin.rotation.x - r0) > 0.5 and spin.rotation.y == 0.0 and spin.rotation.z == 0.0, "pod spins around its long axis only")
 	check(main.pod_m.global_basis.x.normalized().dot(Vector3.RIGHT) > 0.99, "pod's axis runs along the ship, emitter forward")
+	var idle := absf(spin.rotation.x - r0) / 10.0
+	Input.action_press("charge")
+	tick(main.CHARGE_AT[3])
+	r0 = spin.rotation.x
+	tick(10)
+	check(absf(spin.rotation.x - r0) / 10.0 > idle * 3.0, "a docked pod spins up while charging")
+	Input.action_release("charge")
+	tick()
+	var pod_line: Array = main.G.pb.filter(func(b): return b.get("line", false))
+	check(pod_line.size() == 1 and absf(pod_line[0].sx - (main.pod.x + 5)) < 0.01, "with the pod docked in front the laser leaves from the pod")
+	tick(30)
 	main.pod.state = "back"
 	tick(20)
 	check(main.pod_m.global_basis.x.normalized().dot(Vector3.LEFT) > 0.99, "pod docked behind turns to face backwards")
