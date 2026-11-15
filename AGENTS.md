@@ -172,7 +172,8 @@ the pod model spins on its `spin` child around X, the root only turns it to face
   white at every level; only the strands are coloured. Strands per level are `STRANDS`: none at
   LV 1, white at 2, cyan and white at 3, pink, cyan and white at the Nova. While charging, a
   white laser ball sits at `beam_src()` with those strands coiled round it (`Geo.ball_coil`),
-  pulsing in out of phase (`sync_charge_fx`); a pod docked in front spins up. Releasing fires a
+  pulsing in out of phase (`sync_charge_fx`). With a pod docked in front there is no ball: the
+  pod spins up and the strands coil round it (`POD_COIL_R`). Releasing fires a
   laser line (`line = true` in `G.pb`) to the first wall or the screen edge: it follows the ship
   for `BEAM_LIFE` ticks and hits each enemy once, and fires corkscrew pulses of the same strands
   (`Geo.helix`, each with a haze strand), staggered by `PULSE_LAG` so they leave out of phase.
