@@ -384,15 +384,18 @@ static func helix(length: float, r: float, pitch: float, tube: float, sides: int
 
 
 ## A tube coiled round a unit sphere from pole to pole about the X axis (like yarn on a ball).
-static func ball_coil(turns: float, tube: float, steps: int, sides: int, phase := 0.0) -> Array:
+static func ball_coil(turns: float, tube: float, steps: int, sides: int, phase := 0.0, wave := 0.0, wave_ph := 0.0) -> Array:
 	var rings := []
 	var mids := []
+	# `wave` bends the winding back and forth along the strand, `wave_ph` slides that bend
+	var at := func(u: float) -> Vector3:
+		var th := lerpf(0.15, PI - 0.15, u)
+		var ph := phase + u * turns * TAU + wave * sin(u * TAU + wave_ph)
+		return Vector3(cos(th), sin(th) * cos(ph), sin(th) * sin(ph))
 	for i in steps + 1:
 		var u := float(i) / steps
-		var th := lerpf(0.15, PI - 0.15, u)
-		var ph := phase + u * turns * TAU
-		var c := Vector3(cos(th), sin(th) * cos(ph), sin(th) * sin(ph))
-		var nxt := Vector3(cos(th + 0.01), sin(th + 0.01) * cos(ph + 0.01 * turns * TAU / (PI - 0.3)), sin(th + 0.01) * sin(ph + 0.01 * turns * TAU / (PI - 0.3)))
+		var c: Vector3 = at.call(u)
+		var nxt: Vector3 = at.call(u + 0.002)
 		var tan := (nxt - c).normalized()
 		var nrm := c.normalized()
 		var bin := tan.cross(nrm).normalized()
