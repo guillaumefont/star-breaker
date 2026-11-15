@@ -52,6 +52,7 @@ godot --headless --path . --script tests/update_test.gd  # self-update: pack dow
 godot --headless --path . --script tests/icon_test.gd    # project icon and Android launcher icon layers
 godot --headless --path . --script tests/fort_test.gd    # fortress decoration: draw calls, back wall, corridor kept clear
 godot --headless --path . --script tests/balance_test.gd # power-up spacing, losing the pod on death, pod ram, late worlds
+godot --headless --path . --script tests/pods_test.gd    # second pod at the back, one tap launches/recalls both, death drops one
 ```
 
 Screenshots (needs a display, e.g. `xvfb-run -a`):
@@ -153,6 +154,10 @@ the pod model spins on its `spin` child around X, the root only turns it to face
 - Losing a ship resets the lasers, costs a speed step and drops the pod as a P item that
   drifts away (fly through it to dock it again). The pod rams for 1 damage every
   `POD_RAM_CD` ticks; the spread's angled shots never do heavy damage.
+- Two pods (2026-11-15): a P item with one pod docked gives `pod2`, docked on the free side
+  (the tail). Loop over `pods` for anything a pod does. One Pod tap recalls any pod in flight,
+  otherwise launches every docked pod. Losing a ship drops only one P item (the second pod is
+  gone), and with one P carrier per world the second pod comes in world 2 at the earliest.
 - Enemies get +20% hit points and +10% bullet speed per world (`diff()`), capped at `BM_MAX`.
 
 ## Charge lance
