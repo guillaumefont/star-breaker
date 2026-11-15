@@ -165,6 +165,13 @@ the pod model spins on its `spin` child around X, the root only turns it to face
 - Charge stages (2026-11-14): `CHARGE_AT` in `main.gd` holds the ticks for LV 1-3 and the Nova
   (stage 4, 4 s, `CHARGE_MAX`). The HUD meter notches come from `Hud.CHARGE_TICKS`: keep the
   two in step. The Nova beam has `nova = true` and burns enemy bullets it overlaps.
+- Look (Guillaume, 2026-11-15): while charging, glowing spiral arms and shards swirl into an orb at
+  the nose (`swirl`, turns pink at the Nova); a pod docked in front spins up instead of hiding
+  behind it. Releasing fires a laser line (`line = true` in `G.pb`) from `beam_src()` (the pod's
+  nose when docked in front) to the first wall or the screen edge: it follows the ship for
+  `BEAM_LIFE` ticks and hits each enemy once. The Nova adds a pink and cyan twister
+  (`Geo.helix`). Review shots of every level:
+  `xvfb-run -a godot --path . --rendering-method gl_compatibility --resolution 1600x720 --script tools/charge_shots.gd -- /tmp/charge`
 
 ## Gotchas
 

@@ -349,3 +349,54 @@ static func disc(r: float, seg: int) -> Array:
 		var a1 := float(i + 1) / seg * TAU
 		tris.append([Vector3.ZERO, Vector3(cos(a0), sin(a0), 0) * r, Vector3(cos(a1), sin(a1), 0) * r])
 	return tris
+
+
+## A tube wound in a helix along +X from x = 0 to `length` (the Nova lance's twister).
+## The helix radius widens from half of `r` at the start to `r` over the first quarter.
+static func helix(length: float, r: float, pitch: float, tube: float, sides: int, phase := 0.0) -> Array:
+	var steps := int(length / pitch * 10.0)
+	var rings := []
+	var mids := []
+	for i in steps + 1:
+		var u := float(i) / steps
+		var a := phase + u * length / pitch * TAU
+		var rr := r * (0.5 + 0.5 * minf(1.0, u * 4.0))
+		var rad := Vector3(0, cos(a), sin(a))
+		var c := Vector3(u * length, 0, 0) + rad * rr
+		var tan := Vector3(pitch / TAU, -sin(a) * rr, cos(a) * rr).normalized()
+		var bin := tan.cross(rad).normalized()
+		var ring := []
+		for s in sides:
+			var b := float(s) / sides * TAU
+			ring.append(c + (rad * cos(b) + bin * sin(b)) * tube)
+		rings.append(ring)
+		mids.append(c)
+	var tris := []
+	for i in steps:
+		var m: Vector3 = ((mids[i] as Vector3) + (mids[i + 1] as Vector3)) / 2.0
+		for s in sides:
+			var t := (s + 1) % sides
+			tris.append(orient([rings[i][s], rings[i + 1][s], rings[i + 1][t]], m))
+			tris.append(orient([rings[i][s], rings[i + 1][t], rings[i][t]], m))
+	return tris
+
+
+## Flat spiral arms in the XY plane, radius 1, curling in towards the centre (the charge swirl).
+## Each arm is a ribbon that is widest in its middle and tapers at both ends.
+static func spiral(arms: int, turns: float, width: float, steps: int) -> Array:
+	var tris := []
+	for k in arms:
+		var inner := []
+		var outer := []
+		for i in steps + 1:
+			var u := float(i) / steps
+			var a := k * TAU / arms + u * turns * TAU
+			var r := 0.12 + 0.88 * u
+			var w := width * sin(u * PI) * 0.5
+			var d := Vector3(cos(a), sin(a), 0)
+			inner.append(d * maxf(0.0, r - w))
+			outer.append(d * (r + w))
+		for i in steps:
+			tris.append([inner[i], outer[i], outer[i + 1]])
+			tris.append([inner[i], outer[i + 1], inner[i + 1]])
+	return tris
