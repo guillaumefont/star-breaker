@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Star Breaker app icon (Guillaume's pick 2026-11-15, "Pod, 3/4"): the game's crystal pod
-alone, seen at a three quarter angle with its ring and pink shards, hovering over a dark violet
+"""Star Breaker app icon (Guillaume's pick 2026-11-15, "Pod, 3/4"): the game's crystal pod,
+seen at a three quarter angle with its ring and pink shards, with the ship docked behind it at
+true scale (he asked for the ship "behind it at the right spot"), hovering over a dark violet
 gradient (he asked for a darker background), with warp lines streaking past (option "C", then
 spread out: nine evenly spaced lanes plus two on the left).
 
-The pod is a render of the game's own model: tools/icon_shots.gd writes store/pod.png (run it
-again after changing the pod), then this script builds every icon from it.
+The pod and ship are renders of the game's own models: tools/icon_shots.gd writes store/pod.png
+and store/ship-pod.png (run it again after changing a model), then this script builds every
+icon from them.
 
 Usage (from the repo root): python3 tools/icon.py
 Writes icon.png (256, rounded: project icon and web favicon), icons/icon-192.png (legacy
@@ -70,13 +72,24 @@ WARP = [
 ]
 
 
+ZOOM = 0.82             # the camera pulled back from the pod-only framing (pod 74% -> ~61%)
+SHIFT = (0.12, 0.02)    # the pod and ship moved right (and a touch down), in visible squares
+
+
 def subject(root):
-    """The rendered pod, tilted 20 degrees, 74% of the visible square at its widest, centred."""
-    im = Image.open(f'{root}/store/pod.png').convert('RGBA')
-    im = im.crop(im.getbbox()).rotate(20, resample=Image.BICUBIC, expand=True)
-    s = VIS * 0.74 / max(im.size)
+    """The rendered pod, tilted 20 degrees and centred as in the pod-only icon, with the ship
+    docked behind it at true scale (store/ship-pod.png shares the pod shot's projection, so
+    the pod stays pixel for pixel the same), then pulled back by ZOOM and moved by SHIFT."""
+    pod = Image.open(f'{root}/store/pod.png').convert('RGBA')
+    bx = pod.getbbox()
+    rot = pod.crop(bx).rotate(20, resample=Image.BICUBIC, expand=True)
+    s = VIS * 0.74 / max(rot.size) * ZOOM
+    big = Image.open(f'{root}/store/ship-pod.png').convert('RGBA')
+    off = (big.size[0] - pod.size[0]) / 2
+    cx, cy, h = off + (bx[0] + bx[2]) / 2, off + (bx[1] + bx[3]) / 2, 1500
+    im = big.crop((int(cx - h), int(cy - h), int(cx + h), int(cy + h))).rotate(20, resample=Image.BICUBIC, expand=True)
     im = im.resize((int(im.size[0] * s), int(im.size[1] * s)), Image.LANCZOS)
-    x, y = int(N / 2 - im.size[0] / 2), int(N / 2 - im.size[1] / 2)
+    x, y = int(N / 2 + SHIFT[0] * VIS - im.size[0] / 2), int(N / 2 + SHIFT[1] * VIS - im.size[1] / 2)
     layer = Image.new('RGBA', (N, N), (0, 0, 0, 0))
     layer.alpha_composite(im, (x, y))
     return layer
